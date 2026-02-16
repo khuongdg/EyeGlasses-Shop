@@ -799,9 +799,12 @@ const Invoices = () => {
                                                 showSearch
                                                 placeholder="Chọn SKU"
                                                 onChange={(val) => handleProductChange(val, name)}
+                                                filterOption={(input, option) =>
+                                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                                }
                                                 options={variants.map(v => ({
                                                     value: v._id,
-                                                    label: `${v.sku} - ${v.inventory || ''}`
+                                                    label: `${v.sku} - Tồn: ${v.inventory || 0}`
                                                 }))}
                                             />
                                         </Form.Item>

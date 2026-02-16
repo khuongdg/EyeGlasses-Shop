@@ -13,7 +13,7 @@ RUN npm install --production
 # Copy toàn bộ mã nguồn backend vào container
 COPY . .
 
-# Mở cổng 3000 (cổng mà server.js của bạn đang chạy)
+# Mở cổng 3000 (cổng mà server.js)
 EXPOSE 3000
 
 # Lệnh khởi chạy server

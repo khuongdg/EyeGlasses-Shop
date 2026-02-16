@@ -3,7 +3,7 @@ import axiosClient from '../api/axiosClient';
 /**
  * Lấy danh sách variant theo product
  */
-export const getVariants = (productId, params = {}) => {
+export const getVariants = (params = {}) => {
     return axiosClient.get(`/products/variants`, { params });
 };
 
