@@ -1,0 +1,16 @@
+# Dependency folders
+node_modules/
+
+# Environment variables (Cực kỳ quan trọng để bảo mật)
+.env
+
+# Build folders
+dist/
+build/
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+npm-debug.log*

@@ -1,0 +1,7 @@
+@layer theme, base, antd, components, utilities;
+@import "tailwindcss";
+
+
+.ant-input-number {
+    width: 100%;
+}
