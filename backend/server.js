@@ -6,7 +6,8 @@ const cors = require('cors');
 const app = express();
 
 app.use(cors({
-  origin: "*"
+  origin: "*",
+  credentials: true
 }));
 app.use(express.json());
 app.use(bodyParser.json());
