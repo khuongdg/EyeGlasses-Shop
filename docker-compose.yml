@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  # Dịch vụ Backend
+  backend:
+    build: ./backend
+    container_name: glasses-shop-backend
+    ports:
+      - "3001:3000"
+    env_file:
+      - ./backend/.env
+    restart: always
+
+  # Dịch vụ Frontend
+  frontend:
+    build: ./frontend
+    container_name: glasses-shop-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=https://eyeglasses-shop.onrender.com/api
+    restart: always
