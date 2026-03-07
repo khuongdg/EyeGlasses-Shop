@@ -7,13 +7,13 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                 /* Wrapper để giữ khổ giấy nằm ngang 77x56 */
                 <div key={index} className="label-page-wrapper">
                     <div className="label-item">
-                        {/* Phần trên: 39mm */}
+                        {/* Phần trên: 35mm */}
                         <div className="label-header">
                             <p className="mini-text">Mã hàng: {item.sku}</p>
                             <p className="mini-text">{customerName}</p>
                         </div>
 
-                        {/* Phần dưới: 38mm */}
+                        {/* Phần dưới: 42mm */}
                         <div className="label-body">
                             <div className="label-body-top">
                                 <p className="store-title">Cửa hàng: {customerName || 'Undefined'}</p>
@@ -75,28 +75,29 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .label-header { 
-                        height: 36mm; 
-                        padding: 2mm;
+                        height: 35mm; 
+                        padding: 2mm 2mm;
                         display: flex;
                         flex-direction: column;
                         justify-content: center;
                     }
 
                     .label-body { 
-                        height: 38mm; 
+                        height: 42mm; 
+                        padding: 1mm 2mm;
                         display: flex;
                         flex-direction: column;
                     }
 
                     .label-body-top {
-                        height: 19mm;
-                        padding: 1mm 2mm;
+                        height:20mm;
+                        padding: 1mm 1mm;
                         box-sizing: border-box;
                     }
 
                     .label-body-bottom {
-                        margin-top: 5mm;
-                        height: 16mm;
+                        margin-top: 3mm;
+                        height: 20mm;
                         padding: 1mm 1mm;
                         box-sizing: border-box;
                         border-top: 0.15mm dashed #000;
@@ -109,7 +110,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     .store-title { font-size: 6.5pt; font-weight: bold; margin-bottom: 1mm; }
                     
                     .main-content { display: flex; align-items: center; justify-content: space-between; }
-                    .qr-code-img { width: 18mm; height: 18mm; object-fit: contain; }
+                    .qr-code-img { width: 17mm; height: 17mm; object-fit: contain; }
                     .price-info { text-align: right; flex-grow: 1; }
                     .sku-sub { font-size: 5pt; margin: 0; }
                     .print-price { font-size: 11pt; font-weight: bold; margin: 0; color: #000; }
