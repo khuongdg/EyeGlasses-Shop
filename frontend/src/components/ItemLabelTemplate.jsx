@@ -32,7 +32,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                                 <p><b>NSX/NPP:</b> Dongguan Zhengyang Import and Export...</p>
                                 <p><b>Xuất xứ:</b> {item.originCountry || 'Không xác định'}</p>
                                 <p className="highlight-text">HÀNG CHÍNH HIỆU CÓ MÃ TEM TRÙNG MÃ SẢN PHẨM</p>
-                                <p className="usage-info"><b>TP:</b> Kim loại, nhựa. <b>HDSD:</b> Dùng để đeo mắt. <b>BQ:</b> Đựng trong hộp kính. Tránh nhiệt độ cao, hoá chất.</p>
+                                <p className="usage-info"><b>TP:</b> Kim loại, nhựa. <b>HDSD:</b> Dùng để đeo mắt. <b>Bảo quản:</b> Đựng trong hộp kính. Tránh nhiệt độ cao, hoá chất (Acetone, alcol,...).</p>
                             </div>
                         </div>
                     </div>
