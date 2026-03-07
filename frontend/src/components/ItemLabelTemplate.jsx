@@ -4,35 +4,36 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
     return (
         <div ref={ref} className="label-print-area">
             {items.map((item, index) => (
-                <div key={index} className="label-item">
-                    {/* Phần trên: 37mm */}
-                    <div className="label-header">
-                        <p className="mini-text">Mã hàng: {item.sku}</p>
-                        <p className="mini-text">{customerName}</p>
-                    </div>
-
-                    {/* Phần dưới: 38mm */}
-                    <div className="label-body">
-                        {/* Tăng nhẹ khoảng cách phía trên để không sát header */}
-                        <div className="label-body-top">
-                            <p className="store-title">Cửa hàng: {customerName || 'Undefined'}</p>
-                            <div className="main-content">
-                                <img src={item.itemQrCode} alt="QR" className="qr-code-img" />
-                                <div className="price-info">
-                                    <p className="sku-sub"><b>Mã hàng: {item.sku}</b></p>
-                                    <p className="print-price">{Number(item.printPrice || item.price).toLocaleString()} VND</p>
-                                </div>
-                            </div>
+                /* Wrapper để giữ khổ giấy nằm ngang 77x56 */
+                <div key={index} className="label-page-wrapper">
+                    <div className="label-item">
+                        {/* Phần trên: 39mm */}
+                        <div className="label-header">
+                            <p className="mini-text">Mã hàng: {item.sku}</p>
+                            <p className="mini-text">{customerName}</p>
                         </div>
 
-                        {/* Dịch chuyển xuống bằng cách thêm margin-top */}
-                        <div className="label-body-bottom">
-                            <p><b>Công ty phân phối:</b> {companyInfo?.name}</p>
-                            <p><b>Địa chỉ:</b> {companyInfo?.address}</p>
-                            <p><b>NSX/NPP:</b> Dongguan Zhengyang Import and Export...</p>
-                            <p><b>Xuất xứ:</b> {item.originCountry || 'Không xác định'}</p>
-                            <p><b>HÀNG CHÍNH HIỆU CÓ MÃ TEM TRÙNG MÃ SẢN PHẨM</b></p>
-                            <p className="usage-info"><b>TP:</b> Kim loại, nhựa. <b>HDSD:</b> Dùng để đeo mắt. <b>BQ:</b> Đựng trong hộp kính. Tránh nhiệt độ cao, hoá chất.</p>
+                        {/* Phần dưới: 38mm */}
+                        <div className="label-body">
+                            <div className="label-body-top">
+                                <p className="store-title">Cửa hàng: {customerName || 'Undefined'}</p>
+                                <div className="main-content">
+                                    <img src={item.itemQrCode} alt="QR" className="qr-code-img" />
+                                    <div className="price-info">
+                                        <p className="sku-sub"><b>Mã hàng: {item.sku}</b></p>
+                                        <p className="print-price">{Number(item.printPrice || item.price).toLocaleString()} VND</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="label-body-bottom">
+                                <p><b>Công ty phân phối:</b> {companyInfo?.name}</p>
+                                <p><b>Địa chỉ:</b> {companyInfo?.address}</p>
+                                <p><b>NSX/NPP:</b> Dongguan Zhengyang Import and Export...</p>
+                                <p><b>Xuất xứ:</b> {item.originCountry || 'Không xác định'}</p>
+                                <p className="highlight-text">HÀNG CHÍNH HIỆU CÓ MÃ TEM TRÙNG MÃ SẢN PHẨM</p>
+                                <p className="usage-info"><b>TP:</b> Kim loại, nhựa. <b>HDSD:</b> Dùng để đeo mắt. <b>BQ:</b> Đựng trong hộp kính. Tránh nhiệt độ cao, hoá chất.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -40,26 +41,42 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
             <style dangerouslySetInnerHTML={{
                 __html: `
                 @media print {
-                    body { margin: 0; padding: 0; }
-                    .label-print-area { 
-                        width: 56mm; 
+                    @page {
+                        margin: 0;
                     }
+                    body { margin: 0; padding: 0; }
+
+                    .label-page-wrapper {
+                        width: 77mm;
+                        height: 56mm;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        page-break-after: always;
+                        overflow: hidden;
+                        position: relative;
+                    }
+
                     .label-item { 
+                        /* Kích thước nội dung gốc trước khi xoay */
                         width: 56mm; 
                         height: 77mm; 
                         display: flex;
                         flex-direction: column;
-                        page-break-after: always;
                         font-family: Arial, sans-serif;
                         box-sizing: border-box;
+                        
+                        /* Xoay 90 độ qua phải để khớp hướng giấy của máy in */
                         transform: rotate(-90deg);
                         transform-origin: center;
+                        
+                        /* Đảm bảo nội dung không bị lệch khỏi tâm trang */
+                       
                     }
 
                     .label-header { 
-                        height: 37mm; 
+                        height: 36mm; 
                         padding: 2mm;
-                        border-bottom: 0.1mm solid #ccc;
                         display: flex;
                         flex-direction: column;
                         justify-content: center;
@@ -78,32 +95,32 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .label-body-bottom {
-                        height: 19mm;
-                        padding: 1mm 2mm;
+                        margin-top: 5mm;
+                        height: 16mm;
+                        padding: 1mm 1mm;
                         box-sizing: border-box;
-                        /* Thêm margin để đẩy phần nội dung xuống dưới, tránh đè QR */
-                        margin-top: 2mm; 
-                        border-top: 0.1mm dashed #666;
+                        border-top: 0.15mm dashed #000;
                         display: flex;
                         flex-direction: column;
                         justify-content: flex-start;
                     }
 
-                    .mini-text { font-size: 6pt; margin: 0; }
-                    .store-title { font-size: 6pt; font-weight: bold; margin: 0 0 1mm 0; }
+                    .mini-text { font-size: 6.5pt; margin: 0; font-weight: bold; }
+                    .store-title { font-size: 6.5pt; font-weight: bold; margin-bottom: 1mm; }
                     
                     .main-content { display: flex; align-items: center; justify-content: space-between; }
-                    .qr-code-img { width: 16mm; height: 16mm; object-fit: contain; }
+                    .qr-code-img { width: 18mm; height: 18mm; object-fit: contain; }
                     .price-info { text-align: right; flex-grow: 1; }
-                    .sku-sub { font-size: 4pt; margin: 0; }
-                    .print-price { font-size: 10pt; font-weight: bold; margin: 0; color: #000; }
+                    .sku-sub { font-size: 5pt; margin: 0; }
+                    .print-price { font-size: 11pt; font-weight: bold; margin: 0; color: #000; }
 
                     .label-body-bottom p { 
                         margin: 0; 
-                        font-size: 5pt; /* Giảm nhẹ font để đủ không gian khi dịch xuống */
+                        font-size: 5.2pt; 
                         line-height: 1.1;
                     }
-                    .usage-info { font-style: italic; font-size: 4.5pt; margin-top: 0.5mm; }
+                    .highlight-text { font-weight: bold; font-size: 5pt !important; }
+                    .usage-info { font-style: italic; font-size: 4.8pt; margin-top: 0.5mm; }
                 }
             `}} />
         </div>
