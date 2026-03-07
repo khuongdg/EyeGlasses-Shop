@@ -1,7 +1,7 @@
 # Dependency folders
 node_modules/
 
-# Environment variables (Cực kỳ quan trọng để bảo mật)
+# Environment variables
 .env
 
 # Build folders
