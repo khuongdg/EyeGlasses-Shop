@@ -75,7 +75,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .label-header { 
-                        height: 32mm; 
+                        height: 30mm; 
                         padding: 2mm 2mm;
                         display: flex;
                         flex-direction: column;
@@ -83,7 +83,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .label-body { 
-                        height: 45mm; 
+                        height: 47mm; 
                         padding: 1mm 2mm;
                         display: flex;
                         flex-direction: column;
@@ -97,10 +97,10 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
 
                     .label-body-bottom {
                         margin-top: 3mm;
-                        height: 20mm;
+                        height: 22mm;
                         padding: 1mm 1mm;
                         box-sizing: border-box;
-                        border-top: 0.15mm dashed #000;
+                        // border-top: 0.15mm dashed #000;
                         display: flex;
                         flex-direction: column;
                         justify-content: flex-start;
