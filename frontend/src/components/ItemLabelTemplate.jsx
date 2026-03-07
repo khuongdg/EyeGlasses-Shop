@@ -55,6 +55,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                         page-break-after: always;
                         overflow: hidden;
                         position: relative;
+                        padding: 5mm;
                     }
 
                     .label-item { 
@@ -65,18 +66,15 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                         flex-direction: column;
                         font-family: Arial, sans-serif;
                         box-sizing: border-box;
-                        padding-bottom: 5mm;
                         
                         /* Xoay 90 độ qua phải để khớp hướng giấy của máy in */
                         transform: rotate(-90deg);
                         transform-origin: center;
-                        
-                        /* Đảm bảo nội dung không bị lệch khỏi tâm trang */
-                       
+                                               
                     }
 
                     .label-header { 
-                        height: 31mm; 
+                        height: 33mm; 
                         padding: 2mm 2mm;
                         display: flex;
                         flex-direction: column;
@@ -84,7 +82,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .label-body { 
-                        height: 46mm; 
+                        height: 44mm; 
                         padding: 1mm 2mm;
                         display: flex;
                         flex-direction: column;
@@ -92,12 +90,12 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
 
                     .label-body-top {
                         height:24mm;
-                        padding: 1mm 1mm;
+                        padding: 2mm 2mm;
                         box-sizing: border-box;
                     }
 
                     .label-body-bottom {
-                        margin-top: 3mm;
+                        margin-top: 2mm;
                         height: 20mm;
                         padding: 1mm 1mm;
                         box-sizing: border-box;
