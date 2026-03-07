@@ -65,6 +65,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                         flex-direction: column;
                         font-family: Arial, sans-serif;
                         box-sizing: border-box;
+                        padding-bottom: 5mm;
                         
                         /* Xoay 90 độ qua phải để khớp hướng giấy của máy in */
                         transform: rotate(-90deg);
@@ -75,7 +76,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .label-header { 
-                        height: 35mm; 
+                        height: 31mm; 
                         padding: 2mm 2mm;
                         display: flex;
                         flex-direction: column;
@@ -83,14 +84,14 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .label-body { 
-                        height: 42mm; 
+                        height: 46mm; 
                         padding: 1mm 2mm;
                         display: flex;
                         flex-direction: column;
                     }
 
                     .label-body-top {
-                        height:20mm;
+                        height:24mm;
                         padding: 1mm 1mm;
                         box-sizing: border-box;
                     }
@@ -113,7 +114,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     .qr-code-img { width: 17mm; height: 17mm; object-fit: contain; }
                     .price-info { text-align: right; flex-grow: 1; }
                     .sku-sub { font-size: 5pt; margin: 0; }
-                    .print-price { font-size: 11pt; font-weight: bold; margin: 0; color: #000; }
+                    .print-price { font-size: 8pt; font-weight: bold; margin: 0; color: #000; }
 
                     .label-body-bottom p { 
                         margin: 0; 

@@ -64,7 +64,7 @@ const Invoices = () => {
 
     const handlePrintLabels = useReactToPrint({
         contentRef: labelPrintRef,
-        pageStyle: `@page { size: 77mm 56mm; margin: 0; }`,
+        pageStyle: `@page { size: 77mm 60mm; margin: 0; }`,
     });
 
     const [pagination, setPagination] = useState({
