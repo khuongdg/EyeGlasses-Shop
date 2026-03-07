@@ -39,7 +39,10 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                 __html: `
                 @media print {
                     body { margin: 0; padding: 0; }
-                    .label-print-area { width: 56mm; }
+                    .label-print-area { 
+                        width: 56mm; 
+                        transform: rotate(0deg); 
+                    }
                     .label-item { 
                         width: 56mm; 
                         height: 77mm; 
@@ -48,6 +51,8 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                         page-break-after: always;
                         font-family: Arial, sans-serif;
                         box-sizing: border-box;
+                        transform: rotate(-90deg);
+                        transform-origin: center;
                     }
 
                     /* Cấu trúc chiều cao theo yêu cầu */
