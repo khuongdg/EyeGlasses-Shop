@@ -55,7 +55,6 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                         page-break-after: always;
                         overflow: hidden;
                         position: relative;
-                        padding: 5mm;
                     }
 
                     .label-item { 
@@ -70,11 +69,13 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                         /* Xoay 90 độ qua phải để khớp hướng giấy của máy in */
                         transform: rotate(-90deg);
                         transform-origin: center;
-                                               
+                        
+                        /* Đảm bảo nội dung không bị lệch khỏi tâm trang */
+                       
                     }
 
                     .label-header { 
-                        height: 33mm; 
+                        height: 32mm; 
                         padding: 2mm 2mm;
                         display: flex;
                         flex-direction: column;
@@ -82,20 +83,20 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .label-body { 
-                        height: 44mm; 
+                        height: 45mm; 
                         padding: 1mm 2mm;
                         display: flex;
                         flex-direction: column;
                     }
 
                     .label-body-top {
-                        height:24mm;
-                        padding: 2mm 2mm;
+                        height:22mm;
+                        padding: 1mm 1mm;
                         box-sizing: border-box;
                     }
 
                     .label-body-bottom {
-                        margin-top: 2mm;
+                        margin-top: 3mm;
                         height: 20mm;
                         padding: 1mm 1mm;
                         box-sizing: border-box;
