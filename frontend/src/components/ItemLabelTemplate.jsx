@@ -5,14 +5,15 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
         <div ref={ref} className="label-print-area">
             {items.map((item, index) => (
                 <div key={index} className="label-item">
-                    {/* Phần trên: Chiếm 32mm chiều cao */}
+                    {/* Phần trên: 37mm */}
                     <div className="label-header">
                         <p className="mini-text">Mã hàng: {item.sku}</p>
                         <p className="mini-text">{customerName}</p>
                     </div>
 
-                    {/* Phần dưới: Chiếm 43mm chiều cao */}
+                    {/* Phần dưới: 38mm */}
                     <div className="label-body">
+                        {/* Tăng nhẹ khoảng cách phía trên để không sát header */}
                         <div className="label-body-top">
                             <p className="store-title">Cửa hàng: {customerName || 'Undefined'}</p>
                             <div className="main-content">
@@ -24,6 +25,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                             </div>
                         </div>
 
+                        {/* Dịch chuyển xuống bằng cách thêm margin-top */}
                         <div className="label-body-bottom">
                             <p><b>Công ty phân phối:</b> {companyInfo?.name}</p>
                             <p><b>Địa chỉ:</b> {companyInfo?.address}</p>
@@ -41,7 +43,6 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     body { margin: 0; padding: 0; }
                     .label-print-area { 
                         width: 56mm; 
-                        transform: rotate(0deg); 
                     }
                     .label-item { 
                         width: 56mm; 
@@ -55,9 +56,8 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                         transform-origin: center;
                     }
 
-                    /* Cấu trúc chiều cao theo yêu cầu */
                     .label-header { 
-                        height: 32mm; 
+                        height: 37mm; 
                         padding: 2mm;
                         border-bottom: 0.1mm solid #ccc;
                         display: flex;
@@ -66,36 +66,44 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .label-body { 
-                        height: 43mm; 
+                        height: 38mm; 
                         display: flex;
                         flex-direction: column;
                     }
 
-                    .label-body-top, .label-body-bottom {
-                        height: 21.5mm; /* Chia đều 43mm / 2 */
-                        overflow: hidden;
+                    .label-body-top {
+                        height: 19mm;
                         padding: 1mm 2mm;
                         box-sizing: border-box;
                     }
 
-                    /* Styling chi tiết */
+                    .label-body-bottom {
+                        height: 19mm;
+                        padding: 1mm 2mm;
+                        box-sizing: border-box;
+                        /* Thêm margin để đẩy phần nội dung xuống dưới, tránh đè QR */
+                        margin-top: 2mm; 
+                        border-top: 0.1mm dashed #666;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: flex-start;
+                    }
+
                     .mini-text { font-size: 6pt; margin: 0; }
                     .store-title { font-size: 6pt; font-weight: bold; margin: 0 0 1mm 0; }
                     
                     .main-content { display: flex; align-items: center; justify-content: space-between; }
-                    .qr-code-img { width: 15mm; height: 15mm; object-fit: contain; }
+                    .qr-code-img { width: 16mm; height: 16mm; object-fit: contain; }
                     .price-info { text-align: right; flex-grow: 1; }
                     .sku-sub { font-size: 4pt; margin: 0; }
                     .print-price { font-size: 10pt; font-weight: bold; margin: 0; color: #000; }
 
-                    .label-body-bottom {
-                        font-size: 5.2pt;
-                        line-height: 1.2;
-                        border-top: 0.1mm dashed #666;
+                    .label-body-bottom p { 
+                        margin: 0; 
+                        font-size: 5pt; /* Giảm nhẹ font để đủ không gian khi dịch xuống */
+                        line-height: 1.1;
                     }
-                    .label-body-bottom p { margin: 0; }
-                    .highlight-text { text-decoration: underline; font-weight: bold; }
-                    .usage-info { font-style: italic; font-size: 4.8pt; margin-top: 0.5mm; }
+                    .usage-info { font-style: italic; font-size: 4.5pt; margin-top: 0.5mm; }
                 }
             `}} />
         </div>
