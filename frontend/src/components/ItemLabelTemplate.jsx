@@ -9,8 +9,8 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     <div className="label-item">
                         {/* Phần trên: 35mm */}
                         <div className="label-header">
-                            <p className="mini-text">Mã hàng: {item.sku}</p>
-                            <p className="mini-text">{customerName}</p>
+                            <p className="mini-text-head">Mã hàng: {item.sku}</p>
+                            <p className="mini-text-head">{customerName}</p>
                         </div>
 
                         {/* Phần dưới: 42mm */}
@@ -91,12 +91,12 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
 
                     .label-body-top {
                         height:22mm;
-                        padding: 1mm 1mm;
+                        padding: 1.5mm 1.5mm;
                         box-sizing: border-box;
                     }
 
                     .label-body-bottom {
-                        margin-top: 3mm;
+                        margin-top: 2mm;
                         height: 22mm;
                         padding: 1mm 1mm;
                         box-sizing: border-box;
@@ -106,6 +106,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                         justify-content: flex-start;
                     }
 
+                    .mini-text-head { font-size: 3pt; margin: 0;}
                     .mini-text { font-size: 6.5pt; margin: 0; font-weight: bold; }
                     .store-title { font-size: 6.5pt; font-weight: bold; margin-bottom: 1mm; }
                     
@@ -113,7 +114,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     .qr-code-img { width: 17mm; height: 17mm; object-fit: contain; }
                     .price-info { text-align: right; flex-grow: 1; }
                     .sku-sub { font-size: 5pt; margin: 0; }
-                    .print-price { font-size: 8pt; font-weight: bold; margin: 0; color: #000; }
+                    .print-price { font-size: 10pt; font-weight: bold; margin: 0; color: #000; }
 
                     .label-body-bottom p { 
                         margin: 0; 
