@@ -75,7 +75,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .label-header { 
-                        height: 29mm; 
+                        height: 30.5mm; 
                         padding: 2mm 2mm;
                         display: flex;
                         flex-direction: column;
@@ -83,7 +83,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .label-body { 
-                        height: 48mm; 
+                        height: 47.5mm; 
                         padding: 1mm 2mm;
                         display: flex;
                         flex-direction: column;
@@ -115,7 +115,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     .store-title { font-size: 5pt; font-weight: bold; margin-bottom: 1mm; }
                     
                     .main-content { display: flex; align-items: center; justify-content: space-between; }
-                    .qr-code-img { width: 17mm; height: 17mm; object-fit: contain; }
+                    .qr-code-img { width: 70px; height: 70px; object-fit: contain; }
                     .price-info { text-align: right; flex-grow: 1; margin-top: 10mm;}
                     .sku-sub { font-size: 5pt; margin: 0; }
                     .print-price { font-size: 10pt; font-weight: bold; margin: 0; color: #000; }
