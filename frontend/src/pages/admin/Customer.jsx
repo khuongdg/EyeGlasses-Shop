@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import {
   Table,
   Button,
@@ -8,9 +9,10 @@ import {
   message,
   Tag,
   Space,
-  Grid
+  Grid,
+  Upload
 } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined, UploadOutlined, RobotOutlined } from '@ant-design/icons';
 import debounce from 'lodash/debounce';
 
 import {
@@ -19,7 +21,8 @@ import {
   createCustomer,
   updateCustomer,
   deleteCustomer,
-  restoreCustomer
+  restoreCustomer,
+  aiBulkImport
 } from '../../services/customerService';
 
 const Customer = () => {
@@ -42,6 +45,8 @@ const Customer = () => {
 
 
   const [form] = Form.useForm();
+
+  const [importLoading, setImportLoading] = useState(false);
 
   /* ================= FETCH ================= */
   const fetchCustomers = async (
@@ -72,6 +77,88 @@ const Customer = () => {
   useEffect(() => {
     fetchCustomers('', 1, pagination.pageSize);
   }, []);
+
+  /* ================= AI IMPORT LOGIC (WITH LOGS) ================= */
+  const handleAIImport = (file) => {
+    const reader = new FileReader();
+    setImportLoading(true);
+
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        console.log("1. Dữ liệu thô từ Excel:", rawData); //
+
+        const processedData = rawData.map((item, index) => {
+          // Tự động bù số 0 nếu SĐT chỉ có 9 chữ số (do Excel làm mất số 0 đầu)
+          let phone = String(item['Điện thoại'] || item['Số điện thoại'] || item['SDT'] || '').replace(/\D/g, '');
+          if (phone.length === 9 && phone.startsWith('9') || phone.length === 9) {
+            phone = '0' + phone;
+          }
+
+          return {
+            name: (item['Tên khách hàng'] || item['Khách hàng'] || item['Name'])?.toString().trim(),
+            phone: phone,
+            email: item['Email']?.toString().trim(),
+            address: (item['Địa chỉ'] || item['Address'])?.toString().trim(),
+            originalLine: index + 2 // Lưu lại số dòng trong Excel để log lỗi
+          };
+        });
+
+        // Lọc dữ liệu hợp lệ
+        const validData = processedData.filter(item => item.name && /^0\d{9}$/.test(item.phone));
+        const invalidData = processedData.filter(item => !item.name || !/^0\d{9}$/.test(item.phone));
+
+        console.log("2. Danh sách khách hàng hợp lệ:");
+        console.table(validData); // Hiện bảng trong Console để kiểm tra nhanh
+
+        if (invalidData.length > 0) {
+          console.warn("3. Danh sách dòng bị lỗi/bỏ qua:", invalidData);
+        }
+
+        if (validData.length === 0) {
+          throw new Error('Không có dữ liệu hợp lệ. Kiểm tra cột "Tên khách hàng" và "Điện thoại"');
+        }
+
+        // Gửi lên Backend
+        const res = await aiBulkImport(validData);
+        const { createdCount, updatedCount, errors } = res.data.data;
+
+        // Hiển thị Modal báo cáo chi tiết
+        Modal.success({
+          title: 'Kết quả AI Import',
+          content: (
+            <div>
+              <p>Thêm mới thành công: <b>{createdCount}</b></p>
+              <p>Cập nhật thông tin: <b>{updatedCount}</b></p>
+              {errors?.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-red-500 font-semibold">Các dòng bị lỗi trên Server:</p>
+                  <ul className="max-h-40 overflow-y-auto text-xs text-red-400">
+                    {errors.map((err, i) => (
+                      <li key={i}>- {err.name}: {err.error}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ),
+        });
+
+        fetchCustomers('', 1, pagination.pageSize);
+      } catch (err) {
+        console.error("Lỗi Import:", err);
+        message.error(err.message || 'Lỗi xử lý file Excel');
+      } finally {
+        setImportLoading(false);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    return false;
+  };
 
   /* ================= DEBOUNCE SEARCH ================= */
   const debounceSearch = useRef(
@@ -211,17 +298,35 @@ const Customer = () => {
           onChange={(e) => debounceSearch(e.target.value)}
         />
 
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => {
-            setEditing(null);
-            form.resetFields();
-            setOpenModal(true);
-          }}
-        >
-          Thêm khách hàng
-        </Button>
+        <Space wrap>
+          {/* Nút Import thông minh */}
+          <Upload
+            accept=".xlsx, .xls"
+            showUploadList={false}
+            beforeUpload={handleAIImport}
+            disabled={importLoading}
+          >
+            <Button
+              icon={<RobotOutlined />}
+              loading={importLoading}
+              className="bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100"
+            >
+              AI Import Excel
+            </Button>
+          </Upload>
+
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              setEditing(null);
+              form.resetFields();
+              setOpenModal(true);
+            }}
+          >
+            Thêm thủ công
+          </Button>
+        </Space>
       </div>
 
       {/* TABLE */}

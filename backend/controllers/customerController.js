@@ -120,3 +120,32 @@ exports.restoreCustomer = async (req, res) => {
   }
 };
 
+exports.aiBulkImport = async (req, res) => {
+    try {
+        const { customers } = req.body;
+
+        // Validation cơ bản dữ liệu đầu vào
+        if (!customers || !Array.isArray(customers)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Dữ liệu khách hàng không hợp lệ hoặc không phải là mảng' 
+            });
+        }
+
+        // Gọi lớp Service để xử lý nghiệp vụ
+        const result = await customerService.aiBulkImportService(customers);
+
+        res.status(200).json({
+            success: true,
+            message: `AI xử lý hoàn tất: Thêm mới ${result.createdCount}, Cập nhật ${result.updatedCount}`,
+            data: result
+        });
+    } catch (error) {
+        console.error('Controller Error - AI Import:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Lỗi hệ thống khi xử lý AI Import',
+            error: error.message 
+        });
+    }
+};

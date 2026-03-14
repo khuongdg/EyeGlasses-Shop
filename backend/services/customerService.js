@@ -152,3 +152,64 @@ exports.restoreCustomer = async (customerId) => {
 
   return customer;
 };
+
+exports.aiBulkImportService = async (customers) => {
+    let createdCount = 0;
+    let updatedCount = 0;
+    const errors = [];
+
+    // Sử dụng Promise.allSettled hoặc map để xử lý song song
+    await Promise.all(
+        customers.map(async (item) => {
+            try {
+                // 1. AI Logic: Chuẩn hóa tên (Ví dụ: "nguyen van a" -> "Nguyen Van A")
+                const normalizedName = item.name
+                    ?.trim()
+                    .split(/\s+/)
+                    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+                    .join(' ');
+                
+                // 2. Làm sạch số điện thoại (chỉ giữ lại số)
+                const phone = item.phone.toString().replace(/\D/g, '');
+
+                if (!phone || phone.length < 10) {
+                    throw new Error('Số điện thoại không hợp lệ');
+                }
+
+                // 3. Kiểm tra trùng lặp dựa trên Số điện thoại
+                const existingCustomer = await Customer.findOne({ phone });
+
+                if (existingCustomer) {
+                    // Cập nhật thông tin nếu bản ghi cũ đang trống
+                    let isChanged = false;
+                    if (!existingCustomer.address && item.address) {
+                        existingCustomer.address = item.address;
+                        isChanged = true;
+                    }
+                    if (!existingCustomer.email && item.email) {
+                        existingCustomer.email = item.email;
+                        isChanged = true;
+                    }
+
+                    if (isChanged) {
+                        await existingCustomer.save();
+                        updatedCount++;
+                    }
+                } else {
+                    // Tạo khách hàng mới nếu chưa tồn tại
+                    await Customer.create({
+                        ...item,
+                        name: normalizedName,
+                        phone: phone,
+                        isActive: true
+                    });
+                    createdCount++;
+                }
+            } catch (err) {
+                errors.push({ name: item.name || 'Không tên', error: err.message });
+            }
+        })
+    );
+
+    return { createdCount, updatedCount, errors };
+};

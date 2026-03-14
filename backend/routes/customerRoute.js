@@ -4,6 +4,7 @@ const customerController = require('../controllers/customerController');
 
 router.get('/', customerController.getAllCustomers);
 router.post('/create', customerController.createCustomer);
+router.post('/ai-import', customerController.aiBulkImport);
 
 // search phone or name
 router.get('/search', customerController.searchCustomer);

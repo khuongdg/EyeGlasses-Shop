@@ -29,3 +29,12 @@ export const searchCustomers = ({ keyword, page, limit }) => {
         }
     });
 }
+
+/**
+ * AI Bulk Import: Gửi danh sách khách hàng từ Excel lên để xử lý thông minh
+ * @param {Array} customerList - Danh sách khách hàng đã chuẩn hóa từ Excel
+ */
+export const aiBulkImport = async (customerList) => {
+  const url = '/customers/ai-import';
+  return axiosClient.post(url, { customers: customerList });
+};
