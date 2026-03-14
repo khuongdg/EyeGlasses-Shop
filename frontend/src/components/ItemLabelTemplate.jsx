@@ -16,10 +16,10 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                         {/* Phần dưới: 42mm */}
                         <div className="label-body">
                             <div className="label-body-top">
-                                <p className="store-title">Cửa hàng: {customerName || 'Undefined'}</p>
                                 <div className="main-content">
                                     <img src={item.itemQrCode} alt="QR" className="qr-code-img" />
                                     <div className="price-info">
+                                        <p className="store-title">Cửa hàng: {customerName || 'Undefined'}</p>
                                         <p className="sku-sub"><b>Mã hàng: {item.sku}</b></p>
                                         <p className="print-price">{Number(item.printPrice || item.price).toLocaleString()} VND</p>
                                     </div>
@@ -115,7 +115,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     
                     .main-content { display: flex; align-items: center; justify-content: space-between; }
                     .qr-code-img { width: 80px; height: 80px; object-fit: contain; image-rendering: pixelated; image-rendering: crisp-edges;}
-                    .price-info { text-align: right; flex-grow: 1; margin-top: 10mm;}
+                    .price-info { text-align: right; flex-grow: 1; margin-top: 11mm;}
                     .sku-sub { font-size: 5pt; margin: 0; }
                     .print-price { font-size: 10pt; font-weight: bold; margin: 0; color: #000; }
 
