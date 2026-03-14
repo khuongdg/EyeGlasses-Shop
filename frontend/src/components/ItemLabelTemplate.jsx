@@ -19,7 +19,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                                 <div className="main-content">
                                     <img src={item.itemQrCode} alt="QR" className="qr-code-img" />
                                     <div className="price-info">
-                                        <p className="store-title">Cửa hàng: {customerName || 'Undefined'}</p>
+                                        <p className="store-title">{customerName || 'Undefined'}</p>
                                         <p className="sku-sub"><b>Mã hàng: {item.sku}</b></p>
                                         <p className="print-price">{Number(item.printPrice || item.price).toLocaleString()} VND</p>
                                     </div>
@@ -83,7 +83,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .label-body { 
-                        margin-top: 4mm;
+                        margin-top: 5mm;
                         height: 47mm; 
                         padding: 1mm 2mm;
                         display: flex;
@@ -111,13 +111,13 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
 
                     .mini-text-head { font-size: 3pt; margin: 0;}
                     .mini-text { font-size: 6pt; margin: 0; font-weight: bold; }
-                    .store-title { font-size: 5pt; font-weight: bold; margin-bottom: 1mm; }
+                    .store-title { font-size: 5pt; font-weight: bold; margin: 0; }
                     
                     .main-content { display: flex; align-items: center; justify-content: space-between; }
                     .qr-code-img { width: 80px; height: 80px; object-fit: contain; image-rendering: pixelated; image-rendering: crisp-edges;}
-                    .price-info { text-align: right; flex-grow: 1; margin-top: 11mm;}
-                    .sku-sub { font-size: 5pt; margin: 0; }
-                    .print-price { font-size: 10pt; font-weight: bold; margin: 0; color: #000; }
+                    .price-info { text-align: right; flex-grow: 1; margin-top: 12mm;}
+                    .sku-sub { font-size: 4pt; margin: 0; }
+                    .print-price { font-size: 9pt; font-weight: bold; margin: 0; color: #000; }
 
                     .label-body-bottom p { 
                         margin: 0; 
