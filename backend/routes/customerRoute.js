@@ -3,8 +3,9 @@ const router = express.Router();
 const customerController = require('../controllers/customerController');
 
 router.get('/', customerController.getAllCustomers);
-router.post('/create', customerController.createCustomer);
 router.post('/ai-import', customerController.aiBulkImport);
+router.post('/create', customerController.createCustomer);
+
 
 // search phone or name
 router.get('/search', customerController.searchCustomer);

@@ -470,7 +470,6 @@ const Customer = () => {
             label="Số điện thoại"
             name="phone"
             rules={[
-              { required: true, message: 'Vui lòng nhập số điện thoại' },
               {
                 pattern: /^0\d{9}$/,
                 message: 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0'
@@ -481,7 +480,8 @@ const Customer = () => {
               placeholder="0xxxxxxxxx"
               maxLength={10}
               onChange={(e) => {
-                e.target.value = e.target.value.replace(/\D/g, '');
+                const val = e.target.value || '';
+                e.target.value = val.replace(/\D/g, '');
               }}
             />
           </Form.Item>

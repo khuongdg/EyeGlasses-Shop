@@ -31,25 +31,24 @@ exports.getAllCustomers = async (query = {}) => {
 };
 
 const generateCustomerCode = async () => {
-  const lastCustomer = await Customer.findOne({})
+  // Chỉ tìm những khách hàng có customerCode hợp lệ (không null/undefined)
+  const lastCustomer = await Customer.findOne({
+    customerCode: { $ne: null, $regex: /^CUS/ }
+  })
     .sort({ createdAt: -1 })
     .select('customerCode');
 
-  if (!lastCustomer) return 'CUS000001';
+  if (!lastCustomer || !lastCustomer.customerCode) return 'CUS000001';
 
-  const lastNumber = parseInt(lastCustomer.customerCode.replace('CUS', ''));
+  // FIX: Thêm Optional Chaining (?.) và kiểm tra chuỗi trước khi replace
+  const codeStr = String(lastCustomer.customerCode);
+  const lastNumber = parseInt(codeStr.replace('CUS', '')) || 0;
+
   return `CUS${(lastNumber + 1).toString().padStart(6, '0')}`;
 };
 
 // POST api/customers/create
 exports.createCustomer = async (data) => {
-  const { phone } = data;
-
-  const existingCustomer = await Customer.findOne({ phone });
-  if (existingCustomer) {
-    throw new Error('Số điện thoại đã tồn tại');
-  }
-
   const customerCode = await generateCustomerCode();
 
   const customer = new Customer({
@@ -153,63 +152,85 @@ exports.restoreCustomer = async (customerId) => {
   return customer;
 };
 
+/**
+ * AI Bulk Import Service (Updated for Non-Unique Phone)
+ * Logic: So khớp theo (Tên + SĐT) để xử lý việc một SĐT có nhiều khách hàng
+ */
 exports.aiBulkImportService = async (customers) => {
-    let createdCount = 0;
-    let updatedCount = 0;
-    const errors = [];
+  let createdCount = 0;
+  let updatedCount = 0;
+  const errors = [];
 
-    // Sử dụng Promise.allSettled hoặc map để xử lý song song
-    await Promise.all(
-        customers.map(async (item) => {
-            try {
-                // 1. AI Logic: Chuẩn hóa tên (Ví dụ: "nguyen van a" -> "Nguyen Van A")
-                const normalizedName = item.name
-                    ?.trim()
-                    .split(/\s+/)
-                    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-                    .join(' ');
-                
-                // 2. Làm sạch số điện thoại (chỉ giữ lại số)
-                const phone = item.phone.toString().replace(/\D/g, '');
+  await Promise.all(
+    customers.map(async (item) => {
+      try {
+        // 1. Chuẩn hóa tên (Xử lý an toàn nếu name undefined)
+        const normalizedName = item.name
+          ?.trim()
+          .split(/\s+/)
+          .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(' ');
 
-                if (!phone || phone.length < 10) {
-                    throw new Error('Số điện thoại không hợp lệ');
-                }
+        if (!normalizedName) throw new Error('Tên khách hàng không được để trống');
 
-                // 3. Kiểm tra trùng lặp dựa trên Số điện thoại
-                const existingCustomer = await Customer.findOne({ phone });
+        // 2. Làm sạch số điện thoại (Sửa lỗi crash replace)
+        const phone = item.phone?.toString().replace(/\D/g, '') || "";
 
-                if (existingCustomer) {
-                    // Cập nhật thông tin nếu bản ghi cũ đang trống
-                    let isChanged = false;
-                    if (!existingCustomer.address && item.address) {
-                        existingCustomer.address = item.address;
-                        isChanged = true;
-                    }
-                    if (!existingCustomer.email && item.email) {
-                        existingCustomer.email = item.email;
-                        isChanged = true;
-                    }
+        if (!phone || phone.length < 10) {
+          throw new Error('Số điện thoại không hợp lệ (yêu cầu ít nhất 10 số)');
+        }
 
-                    if (isChanged) {
-                        await existingCustomer.save();
-                        updatedCount++;
-                    }
-                } else {
-                    // Tạo khách hàng mới nếu chưa tồn tại
-                    await Customer.create({
-                        ...item,
-                        name: normalizedName,
-                        phone: phone,
-                        isActive: true
-                    });
-                    createdCount++;
-                }
-            } catch (err) {
-                errors.push({ name: item.name || 'Không tên', error: err.message });
-            }
-        })
-    );
+        // 3. Kiểm tra trùng lặp: Tìm khách hàng có CẢ Tên và SĐT khớp nhau
+        // Vì bạn đã xóa unique phone, việc chỉ tìm theo phone sẽ không còn chính xác.
+        const existingCustomer = await Customer.findOne({
+          name: normalizedName,
+          phone: phone
+        });
 
-    return { createdCount, updatedCount, errors };
+        if (existingCustomer) {
+          // AI Logic: Cập nhật thông tin bổ sung nếu bản ghi hiện tại đang thiếu
+          let isChanged = false;
+
+          if (!existingCustomer.address && item.address) {
+            existingCustomer.address = item.address;
+            isChanged = true;
+          }
+          if (!existingCustomer.email && item.email) {
+            existingCustomer.email = item.email;
+            isChanged = true;
+          }
+          if (!existingCustomer.taxCode && item.taxCode) {
+            existingCustomer.taxCode = item.taxCode;
+            isChanged = true;
+          }
+
+          if (isChanged) {
+            await existingCustomer.save();
+            updatedCount++;
+          }
+        } else {
+          // Tạo khách hàng mới
+          // Lưu ý: customerCode sẽ tự động mang giá trị null nếu không truyền 
+          // (Hãy đảm bảo đã xóa index unique của customerCode trong DB)
+          await Customer.create({
+            name: normalizedName,
+            phone: phone,
+            email: item.email || "",
+            address: item.address || "",
+            taxCode: item.taxCode || "",
+            isActive: true
+          });
+          createdCount++;
+        }
+      } catch (err) {
+        // Log lỗi chi tiết cho từng dòng để trả về Frontend
+        errors.push({
+          name: item.name || 'Không xác định',
+          error: err.message
+        });
+      }
+    })
+  );
+
+  return { createdCount, updatedCount, errors };
 };
