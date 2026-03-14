@@ -9,7 +9,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     <div className="label-item">
                         {/* Phần trên: 35mm */}
                         <div className="label-header">
-                            <p className="mini-text-head">Mã hàng: {item.sku}</p>
+                            <p className="mini-text-head_code">Mã hàng: {item.sku}</p>
                             <p className="mini-text-head">{customerName}</p>
                         </div>
 
@@ -110,6 +110,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .mini-text-head { font-size: 3pt; margin: 0;}
+                    .mini-text-head_code { font-size: 5pt; margin: 0;}
                     .mini-text { font-size: 6pt; margin: 0; font-weight: bold; }
                     .store-title { font-size: 5pt; font-weight: bold; margin: 0; }
                     
