@@ -75,7 +75,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .label-header { 
-                        height: 30mm; 
+                        height: 29mm; 
                         padding: 2mm 2mm;
                         display: flex;
                         flex-direction: column;
@@ -83,7 +83,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     }
 
                     .label-body { 
-                        height: 47mm; 
+                        height: 48mm; 
                         padding: 1mm 2mm;
                         display: flex;
                         flex-direction: column;
@@ -93,6 +93,10 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                         height:22mm;
                         padding: 1.5mm 1.5mm;
                         box-sizing: border-box;
+                        display: flex;
+                        flex-direction: column;
+                        /* Đẩy cụm main-content xuống sát dưới cùng */
+                        justify-content: flex-end;
                     }
 
                     .label-body-bottom {
@@ -100,19 +104,19 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                         height: 22mm;
                         padding: 1mm 1mm;
                         box-sizing: border-box;
-                        // border-top: 0.15mm dashed #000;
+                        border-top: 0.15mm dashed #000;
                         display: flex;
                         flex-direction: column;
                         justify-content: flex-start;
                     }
 
                     .mini-text-head { font-size: 3pt; margin: 0;}
-                    .mini-text { font-size: 6.5pt; margin: 0; font-weight: bold; }
-                    .store-title { font-size: 6.5pt; font-weight: bold; margin-bottom: 1mm; }
+                    .mini-text { font-size: 6pt; margin: 0; font-weight: bold; }
+                    .store-title { font-size: 5pt; font-weight: bold; margin-bottom: 1mm; }
                     
                     .main-content { display: flex; align-items: center; justify-content: space-between; }
-                    .qr-code-img { width: 16mm; height: 16mm; object-fit: contain; }
-                    .price-info { text-align: right; flex-grow: 1; }
+                    .qr-code-img { width: 17mm; height: 17mm; object-fit: contain; }
+                    .price-info { text-align: right; flex-grow: 1; margin-top: 10mm;}
                     .sku-sub { font-size: 5pt; margin: 0; }
                     .print-price { font-size: 10pt; font-weight: bold; margin: 0; color: #000; }
 
