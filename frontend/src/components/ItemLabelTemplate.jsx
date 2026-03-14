@@ -109,8 +109,8 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                         justify-content: flex-start;
                     }
 
-                    .mini-text-head { font-size: 3pt; margin: 0;}
-                    .mini-text-head_code { font-size: 5pt; margin: 0;}
+                    .mini-text-head { font-size: 4pt; margin: 0;}
+                    .mini-text-head_code { font-size: 7pt; margin: 0;}
                     .mini-text { font-size: 6pt; margin: 0; font-weight: bold; }
                     .store-title { font-size: 5pt; font-weight: bold; margin: 0; }
                     
