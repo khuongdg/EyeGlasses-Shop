@@ -55,7 +55,7 @@ exports.createInvoice = async (payload) => {
     const itemsWithQr = [];
     for (const item of payload.items) {
       // Dữ liệu nội dung QR Code theo yêu cầu
-      const qrData = `Nhập khẩu và phân phối bởi: ${activeCompany.name}. Địa chỉ: ${activeCompany.address}. Xuất xứ: ${item.originCountry || 'N/A'}. Mã hàng: ${item.sku}. Cửa hàng: ${payload.customerName || 'Khách lẻ'}`;
+      const qrData = `NK và phân phối bởi: ${activeCompany.name}. Đ/c: ${activeCompany.address}. Xuất xứ: ${item.originCountry || 'N/A'}. MH: ${item.sku}. Cửa hàng: ${payload.customerName || 'Khách lẻ'}`;
 
       const qrBase64 = await generateQRCode(qrData);
 
