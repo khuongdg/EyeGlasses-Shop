@@ -118,5 +118,36 @@ exports.searchProducts = async (req, res) => {
     }
 };
 
+exports.aiBulkImport = async (req, res) => {
+    try {
+        const { products } = req.body;
 
+        if (!products || !Array.isArray(products)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Dữ liệu không hợp lệ. Danh sách sản phẩm phải là một mảng.'
+            });
+        }
+
+        // Gọi lớp Service xử lý
+        const result = await productService.aiBulkImportProducts(products);
+
+        res.status(200).json({
+            success: true,
+            message: `AI đã xử lý xong.`,
+            data: {
+                created: result.createdProductCount,
+                updated: result.updatedProductCount,
+                errors: result.errors
+            }
+        });
+    } catch (error) {
+        console.error('Controller Error [AI Import Product]:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi xử lý Import sản phẩm',
+            error: error.message
+        });
+    }
+};
 

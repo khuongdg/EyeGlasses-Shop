@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation} from 'react-router-dom';
 import { Card, Table, Button, Tag, Grid } from 'antd';
 import { Modal, Form, Input, InputNumber, message, Space, Popconfirm } from 'antd';
 import { getProductDetail, createVariant, updateVariant, deleteVariant, restoreVariant } from '../../services/productService';
@@ -7,6 +7,7 @@ import { getProductDetail, createVariant, updateVariant, deleteVariant, restoreV
 const ProductDetail = () => {
     const { slug } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const [product, setProduct] = useState(null);
     const [variants, setVariants] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -31,6 +32,7 @@ const ProductDetail = () => {
 
     const fetchDetail = async () => {
         try {
+            console.log('Slug khi tạo variant:', slug); // DEBUG
             const res = await getProductDetail(slug);
 
             console.log('DETAIL RESPONSE:', res.data); // DEBUG RẤT QUAN TRỌNG
@@ -44,11 +46,26 @@ const ProductDetail = () => {
         }
     };
 
+    const handleBack = () => {
+        // Kiểm tra xem có thông tin trang cũ không
+        if (location.state?.fromPage) {
+            // Quay lại và gửi kèm thông tin để trang danh sách nhận diện
+            navigate('/admin/products', {
+                state: {
+                    page: location.state.fromPage,
+                    keyword: location.state.fromKeyword
+                }
+            });
+        } else {
+            navigate(-1);
+        }
+    };
+
     const handleAddVariant = async () => {
         try {
             const values = await form.validateFields();
 
-            await createVariant(id, values);
+            await createVariant(slug, values);
 
             message.success('Thêm biến thể thành công');
             setOpen(false);
@@ -71,7 +88,7 @@ const ProductDetail = () => {
         try {
             const values = await form.validateFields();
 
-            await updateVariant(id, editingVariant._id, values);
+            await updateVariant(slug, editingVariant._id, values);
 
             message.success('Cập nhật biến thể thành công');
             setEditOpen(false);
@@ -83,13 +100,13 @@ const ProductDetail = () => {
     };
 
     const handleDelete = async (variantId) => {
-        await deleteVariant(id, variantId);
+        await deleteVariant(slug, variantId);
         message.success('Đã xoá biến thể');
         fetchDetail();
     };
 
     const handleRestore = async (variantId) => {
-        await restoreVariant(id, variantId);
+        await restoreVariant(slug, variantId);
         message.success('Đã khôi phục biến thể');
         fetchDetail();
     };
@@ -158,7 +175,7 @@ const ProductDetail = () => {
 
     return (
         <div className="space-y-4 px-2 sm:px-4">
-            <Button onClick={() => navigate(-1)} className="mb-4 w-full sm:w-auto">
+            <Button onClick={handleBack} className="mb-4 w-full sm:w-auto">
                 ← Quay lại
             </Button>
 
@@ -299,7 +316,7 @@ const ProductDetail = () => {
                     </Form.Item>
 
                     <Form.Item label="Số lượng" name="inventory">
-                        <InputNumber style={{ width: '100%' }} />
+                        <Input disabled style={{ width: '100%' }} />
                     </Form.Item>
                 </Form>
             </Modal>

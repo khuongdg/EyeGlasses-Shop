@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import {
     Table,
     Button,
@@ -11,9 +12,10 @@ import {
     message,
     Tag,
     Popconfirm,
-    Grid
+    Grid,
+    Upload
 } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined, RobotOutlined, UploadOutlined } from '@ant-design/icons';
 import debounce from 'lodash/debounce';
 
 import {
@@ -22,7 +24,8 @@ import {
     updateProduct,
     deleteProduct,
     restoreProduct,
-    searchProducts
+    searchProducts,
+    aiBulkImport
 } from '../../services/productService';
 
 const Products = () => {
@@ -34,6 +37,8 @@ const Products = () => {
     const [editingProduct, setEditingProduct] = useState(null);
 
     const [searchKeyword, setSearchKeyword] = useState('');
+
+    const [importLoading, setImportLoading] = useState(false);
 
     const [createForm] = Form.useForm();
     const [editForm] = Form.useForm();
@@ -48,6 +53,85 @@ const Products = () => {
 
     const { useBreakpoint } = Grid;
     const screens = useBreakpoint();
+
+    const handleAIImport = (file) => {
+        const reader = new FileReader();
+        setImportLoading(true);
+
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+                console.log("Dữ liệu thô:", rawData);
+
+                // AI Logic: Gộp các dòng trùng "Mã hàng" thành 1 sản phẩm có nhiều variant
+                const groupedMap = new Map();
+
+                rawData.forEach(item => {
+                    const productName = String(item['Mã hàng'] || '').trim();
+                    const color = String(item['Mã màu'] || item['Màu'] || '').trim().toUpperCase();
+
+                    if (!productName) return;
+
+                    if (!groupedMap.has(productName)) {
+                        groupedMap.set(productName, {
+                            name: productName,
+                            brand: item['Thương hiệu'] || 'Christian DG',
+                            originCountry: item['Xuất xứ'] || 'PRC',
+                            variants: []
+                        });
+                    }
+
+                    const product = groupedMap.get(productName);
+                    product.variants.push({
+                        sku: `${productName}_${color}`, // Tự động sinh SKU theo quy tắc
+                        colorCode: color,
+                        unit: item['Đơn vị'] || 'Cây',
+                        price: Number(item['Giá']) || 0,
+                        inventory: 0
+                    });
+                });
+
+                const finalData = Array.from(groupedMap.values());
+
+                if (finalData.length === 0) throw new Error("Không tìm thấy dữ liệu hợp lệ");
+
+                const res = await aiBulkImport(finalData);
+
+                // Lấy thông tin chi tiết từ kết quả Backend trả về
+                const { created, updated, errors } = res.data.data;
+
+                message.success({
+                    content: `AI Import thành công! Tạo mới: ${created} | Cập nhật: ${updated}`,
+                    duration: 5,
+                });
+
+                if (errors && errors.length > 0) {
+                    Modal.warning({
+                        title: 'Lưu ý: Một số sản phẩm bị lỗi',
+                        content: (
+                            <ul className="max-h-40 overflow-y-auto">
+                                {errors.map((err, idx) => (
+                                    <li key={idx} className="text-red-500 text-xs">
+                                        - {err.name}: {err.error}
+                                    </li>
+                                ))}
+                            </ul>
+                        )
+                    });
+                }
+                fetchProducts('', 1, pagination.pageSize);
+            } catch (err) {
+                message.error(err.message || "Lỗi xử lý file Excel");
+            } finally {
+                setImportLoading(false);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+        return false;
+    };
 
     /* ================= FETCH ================= */
     const fetchProducts = async (keyword, page, pageSize) => {
@@ -106,6 +190,38 @@ const Products = () => {
                 part
             )
         );
+    };
+
+    /* ================= AUTO GENERATE SKU LOGIC ================= */
+    const handleValuesChange = (changedValues, allValues) => {
+        // Kiểm tra xem thay đổi có nằm ở tên sản phẩm hoặc danh sách variants không
+        if (changedValues.name !== undefined || changedValues.variants) {
+            const { name, variants } = allValues;
+
+            if (!variants) return;
+
+            // Chuẩn hóa tên sản phẩm (thay khoảng trắng bằng dấu gạch dưới, viết hoa)
+            const formatString = (str) => {
+                return str ? str.trim().replace(/\s+/g, '_').toUpperCase() : '';
+            };
+
+            const productName = formatString(name);
+
+            // Cập nhật SKU cho từng variant dựa trên tên sản phẩm và màu
+            const updatedVariants = variants.map((v) => {
+                const color = formatString(v?.colorCode);
+                // Chỉ tự động sinh nếu có tên sản phẩm hoặc màu, định dạng: NAME_COLOR
+                const autoSku = color ? `${productName}_${color}` : productName;
+
+                return {
+                    ...v,
+                    sku: autoSku
+                };
+            });
+
+            // Cập nhật lại giá trị vào form
+            createForm.setFieldsValue({ variants: updatedVariants });
+        }
     };
 
     /* ================= CRUD ================= */
@@ -256,13 +372,30 @@ const Products = () => {
                     onChange={(e) => debounceSearch(e.target.value)}
                 />
 
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={() => setOpenModal(true)}
-                >
-                    Thêm sản phẩm
-                </Button>
+                <Space wrap>
+                    <Upload
+                        accept=".xlsx, .xls"
+                        showUploadList={false}
+                        beforeUpload={handleAIImport}
+                        disabled={importLoading}
+                    >
+                        <Button
+                            icon={<RobotOutlined />}
+                            loading={importLoading}
+                            className="bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100"
+                        >
+                            AI Import Kho
+                        </Button>
+                    </Upload>
+
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => setOpenModal(true)}
+                    >
+                        Thêm thủ công
+                    </Button>
+                </Space>
             </div>
 
             {/* TABLE */}
@@ -286,7 +419,12 @@ const Products = () => {
                         onClick: () => {
                             // Sử dụng record.slug thay vì record._id để tạo URL thân thiện
                             if (record.slug) {
-                                navigate(`/admin/products/${record.slug}`);
+                                navigate(`/admin/products/${record.slug}`,{
+                                    state: {
+                                        fromPage: pagination.current,
+                                        fromKeyword: searchKeyword
+                                    }
+                                });
                             } else {
                                 // Backup trường hợp sản phẩm cũ chưa có slug
                                 navigate(`/admin/products/${record._id}`);
@@ -421,7 +559,7 @@ const Products = () => {
                 width="90%"
                 style={{ maxWidth: 900 }}
             >
-                <Form layout="vertical" form={createForm}>
+                <Form layout="vertical" form={createForm} onValuesChange={handleValuesChange}>
                     {/* PRODUCT INFO */}
                     <Form.Item
                         label="Tên sản phẩm"
@@ -433,7 +571,9 @@ const Products = () => {
 
                     <Form.Item
                         label="Thương hiệu"
-                        name="brand" rules={[{ required: true, message: 'Nhập thương hiệu' }]}
+                        name="brand"
+                        initialValue='Christian DG'
+                        rules={[{ required: true, message: 'Nhập thương hiệu' }]}
                     >
                         <Input />
                     </Form.Item>
@@ -477,9 +617,9 @@ const Products = () => {
                                         <Form.Item
                                             label="SKU"
                                             name={[name, 'sku']}
-                                            rules={[{ required: true }]}
+                                            rules={[{ required: true, message: 'Auto generate SKU' }]}
                                         >
-                                            <Input />
+                                            <Input readOnly className="bg-gray-50 font-mono" />
                                         </Form.Item>
 
                                         <Form.Item

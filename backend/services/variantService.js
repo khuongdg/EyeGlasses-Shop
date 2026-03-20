@@ -33,27 +33,32 @@ exports.getAllVariants = async (query = {}) => {
   };
 };
 
-exports.createVariant = async (productId, payload) => {
-  const product = await Product.findById(productId);
+exports.createVariant = async (slug, payload) => {
+  // 1. Tìm sản phẩm cha bằng slug để lấy _id và tên
+  const product = await Product.findOne({ slug }).select('_id name');
   if (!product) {
-    throw new Error('Product not found');
+    throw new Error('Không tìm thấy sản phẩm với slug này');
   }
 
-  // Tạo variant trước (chưa có qr)
+  // 2. Kiểm tra trùng SKU trong hệ thống (Tùy chọn nhưng nên có)
+  const existingSku = await Variant.findOne({ sku: payload.sku });
+  if (existingSku) {
+    throw new Error('Mã SKU này đã tồn tại trong hệ thống');
+  }
+
+  // 3. Khởi tạo Variant mới gắn với productId vừa tìm được
   const variant = new Variant({
     ...payload,
-    productId
+    productId: product._id
   });
 
-  // Sinh QR code
-  variant.qrCode = await generateQRCode({
-    variantId: variant._id,
-    sku: variant.sku,
-    product: product.name,
-    price: variant.price
-  });
+  // 4. Sinh QR code sắc nét cho máy Godex G500
+  // Lưu ý: Chỉ truyền SKU để tối ưu mật độ điểm ảnh, giúp máy in nhiệt scan tốt hơn
+  variant.qrCode = await generateQRCode(variant.sku);
 
+  // 5. Lưu vào Database
   await variant.save();
+
   return variant;
 };
 
@@ -82,77 +87,72 @@ exports.getVariantsByProduct = async (identifier) => {
   return { product, variants };
 };
 
-// PATCH /api/products/:productId/variants/:variantId
-exports.updateVariant = async (productId, variantId, updateData) => {
-  if (
-    !mongoose.Types.ObjectId.isValid(productId) ||
-    !mongoose.Types.ObjectId.isValid(variantId)
-  ) {
-    throw new Error('Invalid productId or variantId');
+// PATCH /api/products/:slug/variants/:variantId
+exports.updateVariant = async (slug, variantId, updateData) => {
+  // 1. Chỉ check valid cho variantId (vì slug là chuỗi, không phải ObjectId)
+  if (!mongoose.Types.ObjectId.isValid(variantId)) {
+    throw new Error('Invalid variantId');
   }
 
-  // Không cho update field hệ thống
-  const disallowedFields = [
-    '_id',
-    'productId',
-    'createdAt',
-    'updatedAt',
-    'qrCode'
-  ];
+  // 2. Tìm Product dựa trên slug để lấy ID thực
+  const product = await Product.findOne({ slug }).select('_id name');
+  if (!product) {
+    throw new Error('Product not found with this slug');
+  }
+
+  // 3. Xóa các field không cho phép sửa
+  const disallowedFields = ['_id', 'productId', 'createdAt', 'updatedAt', 'qrCode'];
   disallowedFields.forEach(field => delete updateData[field]);
 
-  // Lấy variant hiện tại
+  // 4. Tìm variant thuộc về đúng product đó
   const variant = await Variant.findOne({
     _id: variantId,
-    productId
+    productId: product._id
   });
 
   if (!variant) {
-    throw new Error('Variant not found');
+    throw new Error('Variant not found in this product');
   }
 
-  // Merge data cũ + mới để build QR
-  const mergedData = {
-    sku: updateData.sku ?? variant.sku,
-    price: updateData.price ?? variant.price
-  };
-
-  // Nếu có field ảnh hưởng QR → regenerate
+  // 5. Kiểm tra nếu có thay đổi SKU hoặc Giá để sinh lại mã QR
   if (updateData.sku || updateData.price) {
-    const product = await Product.findById(productId);
+    const mergedData = {
+      sku: updateData.sku ?? variant.sku,
+      price: updateData.price ?? variant.price
+    };
 
-    variant.qrCode = await generateQRCode({
-      variantId: variant._id,
-      sku: mergedData.sku,
-      product: product.name,
-      price: mergedData.price
-    });
+    // Rút gọn dữ liệu QR để in tem Godex G500 sắc nét hơn
+    // Lưu ý: Chỉ truyền SKU để mã QR đơn giản, dễ quét tại cửa hàng
+    variant.qrCode = await generateQRCode(mergedData.sku);
   }
 
-  // Apply update
+  // 6. Cập nhật dữ liệu mới
   Object.assign(variant, updateData);
-
   await variant.save();
 
   return variant;
 };
 
 // DELETE /api/products/:productId/variants/:variantId
-exports.deleteVariant = async (productId, variantId) => {
-  if (
-    !mongoose.Types.ObjectId.isValid(productId) ||
-    !mongoose.Types.ObjectId.isValid(variantId)
-  ) {
-    throw new Error('Invalid productId or variantId');
+exports.deleteVariant = async (slug, variantId) => {
+  if (!mongoose.Types.ObjectId.isValid(variantId)) {
+    throw new Error('ID biến thể không hợp lệ');
   }
 
+  // 1. Tìm Product bằng slug để lấy ID thực
+  const product = await Product.findOne({ slug }).select('_id');
+  if (!product) {
+    throw new Error('Không tìm thấy sản phẩm cha');
+  }
+
+  // 2. Tìm và cập nhật trạng thái
   const variant = await Variant.findOne({
     _id: variantId,
-    productId
+    productId: product._id
   });
 
   if (!variant) {
-    throw new Error('Variant not found');
+    throw new Error('Không tìm thấy biến thể trong sản phẩm này');
   }
 
   variant.isActive = false;
@@ -162,21 +162,25 @@ exports.deleteVariant = async (productId, variantId) => {
 };
 
 // RESTORE PATCH /api/products/:productId/variants/:variantId/restore
-exports.restoreVariant = async (productId, variantId) => {
-  if (
-    !mongoose.Types.ObjectId.isValid(productId) ||
-    !mongoose.Types.ObjectId.isValid(variantId)
-  ) {
-    throw new Error('Invalid productId or variantId');
+exports.restoreVariant = async (slug, variantId) => {
+  if (!mongoose.Types.ObjectId.isValid(variantId)) {
+    throw new Error('ID biến thể không hợp lệ');
   }
 
+  // 1. Tìm Product bằng slug
+  const product = await Product.findOne({ slug }).select('_id');
+  if (!product) {
+    throw new Error('Không tìm thấy sản phẩm cha');
+  }
+
+  // 2. Tìm và khôi phục
   const variant = await Variant.findOne({
     _id: variantId,
-    productId
+    productId: product._id
   });
 
   if (!variant) {
-    throw new Error('Variant not found');
+    throw new Error('Không tìm thấy biến thể để khôi phục');
   }
 
   variant.isActive = true;

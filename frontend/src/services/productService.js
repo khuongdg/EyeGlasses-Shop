@@ -24,20 +24,20 @@ export const getProductDetail = (slug) => {
   return axiosClient.get(`/products/${slug}/variants`);
 };
 
-export const createVariant = (productId, data) => {
-  return axiosClient.post(`/products/${productId}/variants/create`, data);
+export const createVariant = (slug, data) => {
+  return axiosClient.post(`/products/${slug}/variants/create`, data);
 };
 
-export const updateVariant = (productId, variantId, data) => {
-  return axiosClient.patch(`/products/${productId}/variants/${variantId}`, data);
+export const updateVariant = (slug, variantId, data) => {
+  return axiosClient.patch(`/products/${slug}/variants/${variantId}`, data);
 };
 
-export const deleteVariant = (productId, variantId) => {
-  return axiosClient.delete(`/products/${productId}/variants/${variantId}`);
+export const deleteVariant = (slug, variantId) => {
+  return axiosClient.delete(`/products/${slug}/variants/${variantId}`);
 };
 
-export const restoreVariant = (productId, variantId) => {
-  return axiosClient.patch(`/products/${productId}/variants/${variantId}/restore`);
+export const restoreVariant = (slug, variantId) => {
+  return axiosClient.patch(`/products/${slug}/variants/${variantId}/restore`);
 };
 
 export const searchProducts = ({ keyword, page, limit }) => {
@@ -49,3 +49,12 @@ export const searchProducts = ({ keyword, page, limit }) => {
     }
   });
 }
+
+/**
+ * AI Bulk Import: Gửi danh sách sản phẩm từ Excel lên để xử lý thông minh
+ * @param {Array} productList - Danh sách sản phẩm đã chuẩn hóa từ Excel
+ */
+export const aiBulkImport = async (productList) => {
+  const url = '/products/ai-import';
+  return axiosClient.post(url, { products: productList });
+};

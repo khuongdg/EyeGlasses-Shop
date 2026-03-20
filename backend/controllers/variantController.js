@@ -24,10 +24,10 @@ exports.getAllVariants = async (req, res) => {
 
 exports.createVariant = async (req, res) => {
   try {
-    const { productId } = req.params;
+    const { slug } = req.params;
 
     const variant = await variantService.createVariant(
-      productId,
+      slug,
       req.body
     );
 
@@ -63,10 +63,10 @@ exports.getVariantsByProduct = async (req, res) => {
 
 exports.updateVariant = async (req, res) => {
   try {
-    const { productId, variantId } = req.params;
+    const { slug, variantId } = req.params;
 
     const updatedVariant = await variantService.updateVariant(
-      productId,
+      slug,
       variantId,
       req.body
     );
@@ -85,9 +85,9 @@ exports.updateVariant = async (req, res) => {
 
 exports.deleteVariant = async (req, res) => {
   try {
-    const { productId, variantId } = req.params;
+    const { slug, variantId } = req.params;
 
-    await variantService.deleteVariant(productId, variantId);
+    await variantService.deleteVariant(slug, variantId);
 
     res.json({
       success: true,
@@ -103,9 +103,9 @@ exports.deleteVariant = async (req, res) => {
 
 exports.restoreVariant = async (req, res) => {
   try {
-    const { productId, variantId } = req.params;
+    const { slug, variantId } = req.params;
 
-    await variantService.restoreVariant(productId, variantId);
+    await variantService.restoreVariant(slug, variantId);
 
     res.json({
       success: true,

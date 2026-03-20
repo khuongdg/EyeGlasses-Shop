@@ -98,16 +98,16 @@ exports.updateCustomer = async (customerId, data) => {
   delete data.customerCode;
 
   // Nếu update phone → check trùng
-  if (data.phone) {
-    const existingCustomer = await Customer.findOne({
-      phone: data.phone,
-      _id: { $ne: customerId }
-    });
+  // if (data.phone) {
+  //   const existingCustomer = await Customer.findOne({
+  //     phone: data.phone,
+  //     _id: { $ne: customerId }
+  //   });
 
-    if (existingCustomer) {
-      throw new Error('Số điện thoại đã tồn tại');
-    }
-  }
+  //   if (existingCustomer) {
+  //     throw new Error('Số điện thoại đã tồn tại');
+  //   }
+  // }
 
   const customer = await Customer.findByIdAndUpdate(
     customerId,

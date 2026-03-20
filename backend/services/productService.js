@@ -252,3 +252,80 @@ exports.searchProducts = async ({ keyword, page = 1, limit = 10 }) => {
         total
     };
 };
+
+exports.aiBulkImportProducts = async (productsData) => {
+    let createdProductCount = 0;
+    let updatedProductCount = 0;
+    const errors = [];
+
+    console.log(">>> BẮT ĐẦU IMPORT AI:", productsData.length, "sản phẩm");
+
+    for (const item of productsData) {
+        try {
+            // 1. Kiểm tra Sản phẩm cha
+            let product = await Product.findOne({ name: item.name });
+
+            if (!product) {
+                product = await Product.create({
+                    name: item.name,
+                    brand: item.brand || 'Christian DG',
+                    description: 'Imported via AI from Excel',
+                    isActive: true
+                });
+                createdProductCount++;
+                console.log(`[NEW PRODUCT] Tạo thành công: ${item.name} (_id: ${product._id})`);
+            } else {
+                updatedProductCount++;
+                console.log(`[EXISTING PRODUCT] Tìm thấy: ${item.name} (_id: ${product._id})`);
+            }
+
+            // 2. Kiểm tra danh sách Variant đầu vào
+            if (!item.variants || item.variants.length === 0) {
+                console.warn(`[WARN] Sản phẩm ${item.name} không có variant nào trong dữ liệu.`);
+                continue;
+            }
+
+            // 3. Xử lý từng Variant
+            for (const v of item.variants) {
+                try {
+                    console.log(`   --- Đang xử lý Variant SKU: ${v.sku}`);
+
+                    const existingVariant = await Variant.findOne({ sku: v.sku });
+
+                    if (!existingVariant) {
+                        // KIỂM TRA HÀM QR CODE (Điểm dễ lỗi nhất)
+                        console.log(`   --- Đang sinh mã QR cho: ${v.sku}`);
+                        const qrCode = await generateQRCode(v.sku);
+
+                        if (!qrCode) {
+                            console.error(`   [ERROR QR] SKU ${v.sku} không sinh được QR!`);
+                        }
+
+                        // TẠO VARIANT
+                        await Variant.create({
+                            ...v,
+                            productId: product._id, // Quan trọng: Phải là ID của object 'product' bên trên
+                            qrCode: qrCode,
+                            isActive: true
+                        });
+                        console.log(`   [SUCCESS] Đã tạo Variant: ${v.sku} cho ProductID: ${product._id}`);
+                    } else {
+                        console.log(`   [SKIP] SKU ${v.sku} đã tồn tại, tiến hành cập nhật.`);
+                        existingVariant.price = v.price || existingVariant.price;
+                        existingVariant.unit = v.unit || existingVariant.unit;
+                        await existingVariant.save();
+                    }
+                } catch (vErr) {
+                    console.error(`   [VARIANT ERROR] SKU: ${v.sku} thất bại:`, vErr.message);
+                    errors.push({ name: `${item.name} (${v.sku})`, error: vErr.message });
+                }
+            }
+        } catch (err) {
+            console.error(`[PRODUCT ERROR] Sản phẩm ${item.name} thất bại:`, err.message);
+            errors.push({ name: item.name, error: err.message });
+        }
+    }
+
+    console.log(">>> KẾT THÚC IMPORT. Thành công:", createdProductCount, "sản phẩm mới.");
+    return { createdProductCount, updatedProductCount, errors };
+};

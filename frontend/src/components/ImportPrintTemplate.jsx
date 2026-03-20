@@ -25,7 +25,7 @@ const ImportPrintTemplate = React.forwardRef(({ data }, ref) => {
                     <Text>Ngày nhập: {new Date(data.createdAt).toLocaleString('vi-VN')}</Text>
                 </Col>
                 <Col span={8} style={{ textAlign: 'right' }}>
-                    <Text strong>Hệ thống GlassShop</Text> <br />
+                    <Text strong>Công ty TNHH Mắt Kính Thuận Thiên Phát</Text> <br />
                     <Text italic>Dữ liệu quản trị kho</Text>
                 </Col>
             </Row>
