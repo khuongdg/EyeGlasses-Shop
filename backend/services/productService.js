@@ -314,6 +314,7 @@ exports.aiBulkImportProducts = async (productsData) => {
                         console.log(`   [SKIP] SKU ${v.sku} đã tồn tại, tiến hành cập nhật.`);
                         existingVariant.price = v.price || existingVariant.price;
                         existingVariant.unit = v.unit || existingVariant.unit;
+                        existingVariant.originCountry = v.originCountry || existingVariant.originCountry;
                         await existingVariant.save();
                     }
                 } catch (vErr) {
