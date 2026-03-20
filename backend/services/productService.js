@@ -269,6 +269,7 @@ exports.aiBulkImportProducts = async (productsData) => {
                 product = await Product.create({
                     name: item.name,
                     brand: item.brand || 'Christian DG',
+                    originCountry: item.originCountry,
                     description: 'Imported via AI from Excel',
                     isActive: true
                 });
