@@ -1,10 +1,15 @@
 import { useEffect, useState, useRef } from 'react';
 import {
     Table, Button, Modal, Form, Input, Select, InputNumber, Grid,
-    message, Space, Row, Col, Divider, Typography, DatePicker, Card, Tag
+    message, Space, Row, Col, Divider, Typography, DatePicker, Card, Tag, Upload
 } from 'antd';
-import { PlusOutlined, DeleteOutlined, PrinterOutlined, SearchOutlined, ImportOutlined } from '@ant-design/icons';
+import {
+    PlusOutlined, DeleteOutlined, PrinterOutlined, SearchOutlined,
+    ImportOutlined, FileExcelOutlined
+} from '@ant-design/icons';
 import { useReactToPrint } from 'react-to-print';
+import * as XLSX from 'xlsx'; 
+
 import { getAllImports, createImport, cancelImport } from '../../services/importService';
 import { getStaffs } from '../../services/staffService';
 import { getVariants } from '../../services/variantService';
@@ -21,9 +26,7 @@ const ImportGoods = () => {
     const [staffs, setStaffs] = useState([]);
     const [loading, setLoading] = useState(false);
     const [openModal, setOpenModal] = useState(false);
-    const [selectedImport, setSelectedImport] = useState(null);
     const [form] = Form.useForm();
-    const componentRef = useRef();
 
     const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
     const [queryParams, setQueryParams] = useState({ keyword: '', dateFrom: null, dateTo: null });
@@ -39,6 +42,76 @@ const ImportGoods = () => {
     const screens = useBreakpoint();
     const isMobile = !screens.md;
 
+    /* ================= LOGIC IMPORT EXCEL CHO PHIẾU NHẬP ================= */
+    const handleExcelImportForForm = (file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+                console.log("Dữ liệu thô từ file mẫu dùng chung:", rawData);
+
+                const formItems = [];
+                const notFoundSkus = [];
+
+                rawData.forEach(item => {
+                    // 1. Tự động kết hợp [Mã hàng] và [Mã màu] thành SKU hệ thống giống bên Products
+                    const rawProductCode = String(item['Mã hàng'] || '').trim();
+                    const rawColorCode = String(item['Mã màu'] || item['Màu'] || '').trim().toUpperCase();
+
+                    // Trường hợp file có sẵn cột SKU thì lấy luôn, nếu không có thì tự động nối chuỗi dạng BIEN_THE
+                    const generatedSku = item['SKU']
+                        ? String(item['SKU']).trim().toUpperCase()
+                        : `${rawProductCode}_${rawColorCode}`.toUpperCase();
+
+                    // Lấy thông tin Giá vốn và Số lượng từ file mẫu
+                    const excelPrice = Number(item['Giá vốn'] || item['Giá nhập'] || 0);
+                    const excelQty = Number(item['Số lượng'] || item['SL'] || 0);
+
+                    // Nếu dòng trống hoặc không có số lượng thực nhập thì bỏ qua
+                    if ((!rawProductCode && !item['SKU']) || excelQty <= 0) return;
+
+                    // 2. Định vị sản phẩm trong hệ thống để lấy _id liên kết khóa ngoại
+                    const targetVariant = variants.find(v => v.sku.toUpperCase() === generatedSku);
+
+                    if (targetVariant) {
+                        formItems.push({
+                            variantId: targetVariant._id,
+                            sku: targetVariant.sku,
+                            originCountry: targetVariant.productId?.originCountry || 'N/A',
+                            importPrice: excelPrice,
+                            quantity: excelQty
+                        });
+                    } else {
+                        notFoundSkus.push(generatedSku);
+                    }
+                });
+
+                if (formItems.length === 0) {
+                    throw new Error("Không tìm thấy sản phẩm nào khớp trong hệ thống. Hãy chắc chắn bạn đã thực hiện bước Import tạo sản phẩm ở trang Sản phẩm trước.");
+                }
+
+                // 3. Đẩy toàn bộ dữ liệu sạch thu thập được trực tiếp lên form giao diện
+                form.setFieldsValue({ items: formItems });
+                message.success(`Đã đồng bộ tự động thành công ${formItems.length} sản phẩm nhập kho!`);
+
+                // Nếu phát hiện SKU nối chuỗi bị lệch danh mục thì báo cáo ngay
+                if (notFoundSkus.length > 0) {
+                    Modal.warning({
+                        title: 'Lưu ý: SKU chưa được khởi tạo',
+                        content: `Hệ thống phát hiện mã SKU [ ${notFoundSkus.join(', ')} ] chưa được tạo ở trang sản phẩm nên không thể thực hiện nhập kho cho dòng này.`
+                    });
+                }
+
+            } catch (err) {
+                message.error(err.message || "Lỗi đọc cấu trúc file Excel dùng chung");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+        return false;
+    };
 
     // Khởi tạo hàm in
     const handlePrint = useReactToPrint({
@@ -47,30 +120,18 @@ const ImportGoods = () => {
         onAfterPrint: () => setPrintData(null),
     });
 
-    // Hàm xử lý khi nhấn nút in
     const onActionPrint = (record) => {
         setPrintData(record);
-        setTimeout(() => {
-            handlePrint();
-        }, 100);
+        setTimeout(() => { handlePrint(); }, 100);
     };
 
     /* ================= FETCH DATA ================= */
     const fetchImports = async (page = 1, pageSize = 10) => {
         setLoading(true);
         try {
-            // Sử dụng getAllImports từ service
-            const res = await getAllImports({
-                ...queryParams,
-                page,
-                limit: pageSize
-            });
+            const res = await getAllImports({ ...queryParams, page, limit: pageSize });
             setImports(res.data.data);
-            setPagination({
-                current: page,
-                pageSize: pageSize,
-                total: res.data.total
-            });
+            setPagination({ current: page, pageSize: pageSize, total: res.data.total });
         } catch (err) {
             message.error('Không thể tải lịch sử nhập kho');
         } finally {
@@ -109,7 +170,6 @@ const ImportGoods = () => {
     const handleCreateImport = async () => {
         try {
             const values = await form.validateFields();
-            // Sử dụng createImport từ service
             await createImport(values);
             message.success('Nhập kho thành công, tồn kho đã tăng');
             setOpenModal(false);
@@ -128,7 +188,6 @@ const ImportGoods = () => {
             okType: 'danger',
             onOk: async () => {
                 try {
-                    // Sử dụng cancelImport từ service
                     await cancelImport(id);
                     message.success('Đã hủy phiếu và hoàn tồn kho');
                     fetchImports();
@@ -143,60 +202,26 @@ const ImportGoods = () => {
     const handleImportProductChange = (val, name) => {
         const v = variants.find((x) => x._id === val);
         if (v) {
-            // Cập nhật các trường ẩn cho dòng hiện tại (name)
             form.setFieldValue(['items', name, 'sku'], v.sku);
             form.setFieldValue(['items', name, 'originCountry'], v.productId?.originCountry || 'N/A');
         }
     };
 
-    /* ================= CẤU HÌNH BẢNG ================= */
     const columns = [
-        {
-            title: 'Mã phiếu',
-            dataIndex: 'importCode',
-            render: (v) => <b style={{ color: '#1677ff' }}>{v}</b>
-        },
-        {
-            title: 'Ngày nhập',
-            dataIndex: 'createdAt',
-            render: (v) => new Date(v).toLocaleString('vi-VN')
-        },
+        { title: 'Mã phiếu', dataIndex: 'importCode', render: (v) => <b style={{ color: '#1677ff' }}>{v}</b> },
+        { title: 'Ngày nhập', dataIndex: 'createdAt', render: (v) => new Date(v).toLocaleString('vi-VN') },
         { title: 'Nhân viên', dataIndex: 'staffName' },
         { title: 'Nhà cung cấp', dataIndex: 'supplier', render: (v) => v || '-' },
         { title: 'Tổng SL', dataIndex: 'totalQuantity', align: 'center' },
-        {
-            title: 'Tổng vốn',
-            dataIndex: 'totalAmount',
-            render: (v) => <Text strong>{v?.toLocaleString()}₫</Text>
-        },
-        {
-            title: 'Trạng thái',
-            dataIndex: 'isActive',
-            render: (v) => v ? <Tag color="green">Hợp lệ</Tag> : <Tag color="red">Đã hủy</Tag>
-        },
+        { title: 'Tổng vốn', dataIndex: 'totalAmount', render: (v) => <Text strong>{v?.toLocaleString()}₫</Text> },
+        { title: 'Trạng thái', dataIndex: 'isActive', render: (v) => v ? <Tag color="green">Hợp lệ</Tag> : <Tag color="red">Đã hủy</Tag> },
         {
             title: 'Thao tác',
             render: (_, record) => (
                 <Space>
-                    <Button
-                        size="small"
-                        icon={<PrinterOutlined />}
-                        title="In phiếu nhập"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onActionPrint(record);
-                        }}
-                    />
+                    <Button size="small" icon={<PrinterOutlined />} title="In phiếu nhập" onClick={(e) => { e.stopPropagation(); onActionPrint(record); }} />
                     {record.isActive && (
-                        <Button
-                            size="small"
-                            danger
-                            icon={<DeleteOutlined />}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleCancel(record._id);
-                            }}
-                        />
+                        <Button size="small" danger icon={<DeleteOutlined />} onClick={(e) => { e.stopPropagation(); handleCancel(record._id); }} />
                     )}
                 </Space>
             )
@@ -205,155 +230,57 @@ const ImportGoods = () => {
 
     return (
         <div style={{ padding: '20px' }}>
-            <Row
-                justify="space-between"
-                align="middle"
-                gutter={[16, 16]}
-                style={{ marginBottom: 20 }}
-            >
+            {/* ... Bảng quản lý và bộ lọc giữ nguyên ... */}
+            <Row justify="space-between" align="middle" gutter={[16, 16]} style={{ marginBottom: 20 }}>
                 <Col flex="auto"><Title level={3} style={{ margin: 0 }}>Quản lý Nhập kho</Title></Col>
                 <Col>
-                    <Button
-                        type="primary"
-                        size={isMobile ? "middle" : "large"}
-                        block={isMobile}
-                        icon={<ImportOutlined />}
-                        onClick={() => setOpenModal(true)}
-                    >
+                    <Button type="primary" size={isMobile ? "middle" : "large"} block={isMobile} icon={<ImportOutlined />} onClick={() => setOpenModal(true)}>
                         Nhập hàng vào kho
                     </Button>
                 </Col>
             </Row>
 
-            {/* BỘ LỌC */}
-            <Card style={{ marginBottom: 16 }} size="small">
+            <Card style={{ marginTo: 0, marginBottom: 16 }} size="small">
                 <Row gutter={[16, 16]} align="bottom">
                     <Col xs={24} md={8}>
                         <Text strong>Tìm kiếm</Text>
-                        <Input
-                            placeholder="Mã phiếu nhập..."
-                            prefix={<SearchOutlined />}
-                            value={queryParams.keyword}
-                            onChange={e => setQueryParams({ ...queryParams, keyword: e.target.value })}
-                            onPressEnter={() => fetchImports(1)}
-                        />
+                        <Input placeholder="Mã phiếu nhập..." prefix={<SearchOutlined />} value={queryParams.keyword} onChange={e => setQueryParams({ ...queryParams, keyword: e.target.value })} onPressEnter={() => fetchImports(1)} />
                     </Col>
                     <Col xs={24} md={8}>
                         <Text strong>Khoảng thời gian</Text>
-                        <RangePicker
-                            style={{ width: '100%' }}
-                            format="DD/MM/YYYY"
-                            onChange={(dates, strings) => setQueryParams({ ...queryParams, dateFrom: strings[0], dateTo: strings[1] })}
-                        />
+                        <RangePicker style={{ width: '100%' }} format="DD/MM/YYYY" onChange={(dates, strings) => setQueryParams({ ...queryParams, dateFrom: strings[0], dateTo: strings[1] })} />
                     </Col>
                     <Col xs={24} md={8}>
                         <Space direction={isMobile ? "vertical" : "horizontal"} className={isMobile ? "w-full" : ""}>
-                            <Button type="primary" block={isMobile} onClick={() => fetchImports(1)}>
-                                Lọc dữ liệu
-                            </Button>
-                            <Button
-                                block={isMobile}
-                                onClick={() => {
-                                    setQueryParams({ keyword: '', dateFrom: null, dateTo: null });
-                                    fetchImports(1);
-                                }}
-                            >
-                                Reset
-                            </Button>
+                            <Button type="primary" block={isMobile} onClick={() => fetchImports(1)}>Lọc dữ liệu</Button>
+                            <Button block={isMobile} onClick={() => { setQueryParams({ keyword: '', dateFrom: null, dateTo: null }); fetchImports(1); }}>Reset</Button>
                         </Space>
                     </Col>
                 </Row>
             </Card>
 
             {!isMobile ? (
-                <Table
-                    dataSource={imports}
-                    columns={columns}
-                    rowKey="_id"
-                    loading={loading}
-                    pagination={{
-                        ...pagination,
-                        showSizeChanger: true,
-                        pageSizeOptions: ['10', '20', '50']
-                    }}
-                    onChange={(p) => fetchImports(p.current, p.pageSize)}
-                    onRow={(record) => ({
-                        onClick: () => {
-                            setViewingImport(record);
-                            setOpenDetail(true);
-                        },
-                        style: { cursor: 'pointer' }
-                    })}
-                />
+                <Table dataSource={imports} columns={columns} rowKey="_id" loading={loading} pagination={{ ...pagination, showSizeChanger: true, pageSizeOptions: ['10', '20', '50'] }} onChange={(p) => fetchImports(p.current, p.pageSize)} onRow={(record) => ({ onClick: () => { setViewingImport(record); setOpenDetail(true); }, style: { cursor: 'pointer' } })} />
             ) : (
                 <div className="space-y-3">
                     {imports.map((record) => (
-                        <Card
-                            key={record._id}
-                            size="small"
-                            className="shadow-sm"
-                            onClick={() => {
-                                setViewingImport(record);
-                                setOpenDetail(true);
-                            }}
-                        >
+                        <Card key={record._id} size="small" className="shadow-sm" onClick={() => { setViewingImport(record); setOpenDetail(true); }}>
                             <div className="flex justify-between mb-2">
-                                <Text strong style={{ color: '#1677ff' }}>
-                                    {record.importCode}
-                                </Text>
-                                {record.isActive ? (
-                                    <Tag color="green">Hợp lệ</Tag>
-                                ) : (
-                                    <Tag color="red">Đã hủy</Tag>
-                                )}
+                                <Text strong style={{ color: '#1677ff' }}>{record.importCode}</Text>
+                                {record.isActive ? <Tag color="green">Hợp lệ</Tag> : <Tag color="red">Đã hủy</Tag>}
                             </div>
-
                             <div className="text-sm mb-2">
                                 <div>Ngày nhập: {new Date(record.createdAt).toLocaleString('vi-VN')}</div>
                                 <div>Nhân viên: {record.staffName}</div>
                                 <div>Nhà cung cấp: {record.supplier || '-'}</div>
                             </div>
-
                             <div className="flex justify-between mb-2">
-                                <div>
-                                    <Text type="secondary">Tổng SL</Text><br />
-                                    <Text strong>{record.totalQuantity}</Text>
-                                </div>
-                                <div>
-                                    <Text type="secondary">Tổng vốn</Text><br />
-                                    <Text strong>
-                                        {record.totalAmount?.toLocaleString()}₫
-                                    </Text>
-                                </div>
+                                <div><Text type="secondary">Tổng SL</Text><br /><Text strong>{record.totalQuantity}</Text></div>
+                                <div><Text type="secondary">Tổng vốn</Text><br /><Text strong>{record.totalAmount?.toLocaleString()}₫</Text></div>
                             </div>
-
                             <div className="flex gap-2">
-                                <Button
-                                    size="small"
-                                    block
-                                    icon={<PrinterOutlined />}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onActionPrint(record);
-                                    }}
-                                >
-                                    In phiếu
-                                </Button>
-
-                                {record.isActive && (
-                                    <Button
-                                        size="small"
-                                        danger
-                                        block
-                                        icon={<DeleteOutlined />}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleCancel(record._id);
-                                        }}
-                                    >
-                                        Hủy 
-                                    </Button>
-                                )}
+                                <Button size="small" block icon={<PrinterOutlined />} onClick={(e) => { e.stopPropagation(); onActionPrint(record); }}>In phiếu</Button>
+                                {record.isActive && <Button size="small" danger block icon={<DeleteOutlined />} onClick={(e) => { e.stopPropagation(); handleCancel(record._id); }}>Hủy </Button>}
                             </div>
                         </Card>
                     ))}
@@ -399,9 +326,7 @@ const ImportGoods = () => {
                                 {fields.map(({ key, name, ...restField }) => (
                                     <Row key={key} gutter={12} align="bottom" style={{ marginBottom: 8 }}>
                                         <Col xs={24} md={6}>
-                                            <Form.Item name={[name, 'sku']} hidden>
-                                                <Input />
-                                            </Form.Item>
+                                            <Form.Item name={[name, 'sku']} hidden><Input /></Form.Item>
                                             <Form.Item name={[name, 'originCountry']} hidden><Input /></Form.Item>
 
                                             <Form.Item {...restField} name={[name, 'variantId']} label={name === 0 ? "Chọn sản phẩm (SKU)" : ""} rules={[{ required: true }]}>
@@ -442,26 +367,43 @@ const ImportGoods = () => {
                                                 </div>
                                             </Form.Item>
                                         </Col>
-                                        <Col span={2}>
-                                        </Col>
                                     </Row>
                                 ))}
-                                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />} style={{ marginTop: 5 }}>
-                                    Thêm dòng sản phẩm
-                                </Button>
+
+                                {/* KHU VỰC THAO TÁC CỦA FORM LIST */}
+                                <Row gutter={12} style={{ marginTop: 10 }}>
+                                    <Col xs={24} md={12}>
+                                        <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                                            Thêm dòng sản phẩm
+                                        </Button>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        {/* Nút Import tự động bằng file Excel */}
+                                        <Upload
+                                            accept=".xlsx, .xls"
+                                            showUploadList={false}
+                                            beforeUpload={handleExcelImportForForm}
+                                        >
+                                            <Button
+                                                block
+                                                icon={<FileExcelOutlined />}
+                                                className="border-[#1D6F42] text-[#1D6F42] hover:text-[#155231] hover:border-[#155231]"
+                                            >
+                                                AI Đổ Dữ Liệu Excel (SKU, Giá vốn, SL)
+                                            </Button>
+                                        </Upload>
+                                    </Col>
+                                </Row>
                             </>
                         )}
                     </Form.List>
 
+                    {/* ... Khối tổng kết ghi chú phía dưới giữ nguyên ... */}
                     <div style={{ marginTop: 24, padding: '20px', background: '#f5f5f5', borderRadius: '8px' }}>
                         <Row justify="end" gutter={[24, 24]}>
-                            {/* Bên trái: Ghi chú */}
                             <Col xs={24} md={12}>
                                 <Form.Item label={<Text strong>Ghi chú phiếu nhập</Text>} name="note">
-                                    <Input.TextArea
-                                        rows={3}
-                                        placeholder="Nhập nội dung mua..."
-                                    />
+                                    <Input.TextArea rows={3} placeholder="Nhập nội dung mua..." />
                                 </Form.Item>
                             </Col>
                             <Col xs={24} md={12}>
@@ -487,18 +429,9 @@ const ImportGoods = () => {
                 </Form>
             </Modal>
 
-            <ImportDetails
-                open={openDetail}
-                onClose={() => setOpenDetail(false)}
-                data={viewingImport}
-            />
-
-            {/* Template ẩn phục vụ việc in (không hiển thị trên màn hình) */}
-            <div style={{ display: 'none' }}>
-                <ImportPrintTemplate ref={printRef} data={printData} />
-            </div>
+            <ImportDetails open={openDetail} onClose={() => setOpenDetail(false)} data={viewingImport} />
+            <div style={{ display: 'none' }}><ImportPrintTemplate ref={printRef} data={printData} /></div>
         </div>
-
     );
 };
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import {
     Table,
     Button,
@@ -15,7 +16,7 @@ import {
     Grid,
     Upload
 } from 'antd';
-import { PlusOutlined, RobotOutlined, UploadOutlined } from '@ant-design/icons';
+import { PlusOutlined, RobotOutlined, DownloadOutlined } from '@ant-design/icons';
 import debounce from 'lodash/debounce';
 
 import {
@@ -89,7 +90,7 @@ const Products = () => {
                         sku: `${productName}_${color}`, // Tự động sinh SKU theo quy tắc
                         colorCode: color,
                         unit: item['Đơn vị'] || 'Cây',
-                        price: Number(item['Giá']) || 0,
+                        price: Number(item['Giá bán'] || item['Giá'] || 0),
                         inventory: 0
                     });
                 });
@@ -131,6 +132,95 @@ const Products = () => {
         };
         reader.readAsArrayBuffer(file);
         return false;
+    };
+
+    const downloadTemplate = async () => {
+        const workbook = new ExcelJS.Workbook();
+
+        // ================= SHEET 1: ĐIỀN DỮ LIỆU =================
+        const worksheet1 = workbook.addWorksheet('Template_NhapKho');
+        worksheet1.columns = [
+            { header: 'Mã hàng', key: 'sku', width: 15 },
+            { header: 'Mã màu', key: 'color', width: 12 },
+            { header: 'Thương hiệu', key: 'brand', width: 18 },
+            { header: 'Xuất xứ', key: 'origin', width: 15 },
+            { header: 'Đơn vị', key: 'unit', width: 10 },
+            { header: 'Giá bán', key: 'price', width: 15 },
+            { header: 'Giá vốn', key: 'importPrice', width: 15 },
+            { header: 'Số lượng', key: 'quantity', width: 12 },
+        ];
+        worksheet1.spliceRows(1, 1);
+
+        const headerRow = worksheet1.addRow(['Mã hàng', 'Mã màu', 'Thương hiệu', 'Xuất xứ', 'Đơn vị', 'Giá bán', 'Giá vốn', 'Số lượng']);
+        headerRow.eachCell((cell) => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } };
+            cell.font = { name: 'Arial', bold: true, color: { argb: 'FF006100' } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        });
+        headerRow.height = 25;
+
+        const sampleData = [
+            ['8619', 'C1', 'Christian DG', 'PRC', 'Cây', 250000, 150000, 10],
+            ['8619', 'C3', 'Christian DG', 'PRC', 'Cây', 250000, 150000, 5],
+            ['8617', 'C1', 'Christian DG', 'PRC', 'Cây', 280000, 165000, 20],
+        ];
+        sampleData.forEach(row => {
+            const r = worksheet1.addRow(row);
+            [1, 2, 4, 5, 8].forEach(colIdx => r.getCell(colIdx).alignment = { horizontal: 'center' });
+            [6, 7].forEach(colIdx => {
+                r.getCell(colIdx).numFmt = '#,##0';
+                r.getCell(colIdx).alignment = { horizontal: 'right' };
+            });
+            r.eachCell(cell => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
+        });
+
+
+        // ================= SHEET 2: HƯỚNG DẪN & LƯU Ý =================
+        const worksheet2 = workbook.addWorksheet('Hướng_Dẫn_Lưu_Ý');
+
+        // Cấu hình độ rộng cột cho trang hướng dẫn
+        worksheet2.columns = [
+            { width: 25 }, // Cột Tiêu đề mục
+            { width: 75 }  // Cột Nội dung chi tiết
+        ];
+
+        // 1. Tiêu đề trang hướng dẫn
+        const guideTitle = worksheet2.addRow(['QUY ĐỊNH & HƯỚNG DẪN NHẬP FILE KHO HÀNG (AI IMPORT)']);
+        worksheet2.mergeCells('A1:B1');
+        guideTitle.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FF1D6F42' } };
+        guideTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+        guideTitle.height = 35;
+        worksheet2.addRow([]); // Dòng trống
+
+        // 2. Nội dung các quy tắc
+        const guidelines = [
+            ['1. Quy tắc gộp sản phẩm:', 'Các dòng có cùng "Mã hàng" sẽ được hệ thống tự động gộp thành 1 sản phẩm cha. Đừng đổi tên mã hàng lung tung nhé.'],
+            ['2. Quy tắc sinh mã SKU:', 'Hệ thống tự động nối chuỗi theo dạng: [Mã hàng]_[Mã màu] (Ví dụ dòng 1 sẽ sinh ra SKU: 8619_C1).'],
+            ['3. Màu sắc (Mã màu):', 'Có thể điền mã màu bằng chữ thường hoặc in hoa, hệ thống sẽ tự động chuyển tất cả về dạng in hoa khi import. (Ví dụ: c1 hoặc C1 đều đúng).'],
+            ['4. Định dạng cột Giá:', 'Nhập số nguyên trực tiếp (Ví dụ: 150000), KHÔNG gõ thêm chữ "đ" hay "VND" bằng tay.'],
+            ['5. Xử lý hàng tồn kho:', 'Đối với sản phẩm/màu MỚI, tồn kho mặc định = 0. Đối với sản phẩm đã có sẵn, số lượng cũ trong máy được GIỮ NGUYÊN, hệ thống chỉ CẬP NHẬT giá mới.'],
+            ['6. Lưu ý về tên cột:', 'TUYỆT ĐỐI không thay đổi tên hàng đầu tiên ở Sheet 1, có thể xoá các cột không cần thiết như "Thương hiệu"/"Xuất xứ"/"Đơn vị" nếu mặc định là "Christian DG"/"PRC"/"Cây"'],
+            ['7. Lưu ý về dữ liệu:', 'Dữ liệu sản phẩm trên Sheet 1 chỉ là mẫu, hãy thay thế bằng dữ liệu thực tế để tránh nhầm lẫn.']
+        ]
+
+        guidelines.forEach(guideline => {
+            const row = worksheet2.addRow(guideline);
+            row.height = 30;
+
+            // Cột tiêu đề quy định (Cột A)
+            row.getCell(1).font = { name: 'Arial', bold: true, color: { argb: 'FFFF0000' } }; // Chữ đỏ cho chú ý
+            row.getCell(1).alignment = { vertical: 'middle' };
+
+            // Cột nội dung chi tiết (Cột B)
+            row.getCell(2).font = { name: 'Arial', italic: true };
+            row.getCell(2).alignment = { vertical: 'middle', wrapText: true }; // Tự động xuống dòng nếu text dài
+        });
+
+        // 3. Xuất file tích hợp cả 2 sheet về máy người dùng
+        const buffer = await workbook.xlsx.writeBuffer();
+        saveAs(new Blob([buffer]), 'Mau_Nhap_Kho_Sieu_Thi_Kinh.xlsx');
+        message.success('Tải file mẫu kèm hướng dẫn thành công!');
     };
 
     /* ================= FETCH ================= */
@@ -373,6 +463,14 @@ const Products = () => {
                 />
 
                 <Space wrap>
+                    <Button
+                        icon={<DownloadOutlined />}
+                        onClick={downloadTemplate}
+                        className="text-gray-600 border-gray-300 hover:text-green-600 hover:border-green-600"
+                    >
+                        Tải file mẫu
+                    </Button>
+
                     <Upload
                         accept=".xlsx, .xls"
                         showUploadList={false}
@@ -419,7 +517,7 @@ const Products = () => {
                         onClick: () => {
                             // Sử dụng record.slug thay vì record._id để tạo URL thân thiện
                             if (record.slug) {
-                                navigate(`/admin/products/${record.slug}`,{
+                                navigate(`/admin/products/${record.slug}`, {
                                     state: {
                                         fromPage: pagination.current,
                                         fromKeyword: searchKeyword

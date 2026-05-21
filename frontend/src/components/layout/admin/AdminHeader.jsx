@@ -68,9 +68,10 @@ const AdminHeader = ({ collapsed, setCollapsed }) => {
         background: '#fff',
         padding: '0 16px',
         display: 'flex',
+        borderLeft: '1px solid #f0f0f0',
+        borderBottom: '1px solid #f0f0f0',
         justifyContent: 'space-between',
         alignItems: 'center',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
         zIndex: 1
       }}
     >
