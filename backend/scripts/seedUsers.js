@@ -1,11 +1,11 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const User = require('../models/User');
-const authConnection = require('../database/authConnection');
+const invoiceConnection = require('../database/invoiceConnection');
 
 (async () => {
   try {
-    await authConnection;
+    await invoiceConnection;
 
     const existsAdmin = await User.findOne({ username: 'admin' });
     if (!existsAdmin) {

@@ -144,7 +144,7 @@ const Dashboard = () => {
         {/* Các chỉ số tổng quát */}
         <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
           <Col xs={24} sm={12} lg={6}>
-            <Card bordered={false} className="shadow-sm">
+            <Card bordered="2px" className="shadow-sm">
               <Statistic
                 title="Doanh thu thực thu"
                 value={stats?.revenue || 0}
@@ -156,7 +156,7 @@ const Dashboard = () => {
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card bordered={false} className="shadow-sm">
+            <Card bordered="2px" className="shadow-sm">
               <Statistic
                 title="Vốn nhập hàng đã chi"
                 value={stats?.importCost || 0}
@@ -168,7 +168,7 @@ const Dashboard = () => {
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card bordered={false} className="shadow-sm">
+            <Card bordered="2px" className="shadow-sm">
               <Statistic
                 title="Lợi nhuận gộp"
                 value={stats?.profit || 0}
@@ -180,7 +180,7 @@ const Dashboard = () => {
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card bordered={false} className="shadow-sm">
+            <Card bordered="2px" className="shadow-sm">
               <Statistic
                 title="Số phiếu bán hàng"
                 value={stats?.totalSalesCount || 0}

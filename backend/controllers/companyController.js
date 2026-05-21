@@ -51,6 +51,10 @@ exports.updateCompany = async (req, res) => {
   try {
     const { companyId } = req.params;
 
+    // Log kiểm tra xem dữ liệu Frontend gửi lên đã vào đến đây chưa
+    console.log(">>> BODY NHẬN ĐƯỢC:", req.body);
+
+    // Chỉ truyền companyId và req.body xuống Service
     const company = await companyService.updateCompany(companyId, req.body);
 
     res.json({

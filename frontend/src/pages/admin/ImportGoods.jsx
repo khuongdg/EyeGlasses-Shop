@@ -8,7 +8,7 @@ import {
     ImportOutlined, FileExcelOutlined
 } from '@ant-design/icons';
 import { useReactToPrint } from 'react-to-print';
-import * as XLSX from 'xlsx'; 
+import * as XLSX from 'xlsx';
 
 import { getAllImports, createImport, cancelImport } from '../../services/importService';
 import { getStaffs } from '../../services/staffService';
@@ -387,9 +387,13 @@ const ImportGoods = () => {
                                             <Button
                                                 block
                                                 icon={<FileExcelOutlined />}
-                                                className="border-[#1D6F42] text-[#1D6F42] hover:text-[#155231] hover:border-[#155231]"
+                                                className="text-white bg-[#1D6F42] border-[#1D6F42] 
+                                                        hover:!bg-[#278950] hover:!text-white hover:!border-[#278950] 
+                                                        focus:!bg-[#1D6F42] focus:!text-white focus:!border-[#1D6F42]
+                                                        active:!bg-[#155231] 
+                                                        transition-all duration-200"
                                             >
-                                                AI Đổ Dữ Liệu Excel (SKU, Giá vốn, SL)
+                                                Automatic Data By Excel
                                             </Button>
                                         </Upload>
                                     </Col>

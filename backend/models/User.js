@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const authConnection = require('../database/authConnection');
+const invoiceConnection = require('../database/invoiceConnection');
 
 const UserSchema = new mongoose.Schema(
   {
@@ -23,8 +23,8 @@ UserSchema.pre('save', async function () {
   this.password = await bcrypt.hash(this.password, 10);
 });
 
-UserSchema.methods.comparePassword = function (password) {
-  return bcrypt.compare(password, this.password);
+UserSchema.methods.comparePassword = async function (password) {
+  return await bcrypt.compare(password, this.password);
 };
 
-module.exports = authConnection.model('User', UserSchema);
+module.exports = invoiceConnection.model('User', UserSchema);

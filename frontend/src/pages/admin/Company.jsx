@@ -7,245 +7,287 @@ import {
     Input,
     message,
     Tag,
-    Space,
     Row,
     Col,
     Typography,
     Empty,
-    Tooltip,
-    Divider,
     Grid,
-    Popconfirm
+    Descriptions,
+    Space,
+    Divider
 } from 'antd';
 import {
-    PlusOutlined,
     EditOutlined,
-    DeleteOutlined,
-    ReloadOutlined,
+    PlusOutlined,
     PhoneOutlined,
     MailOutlined,
     EnvironmentOutlined,
-    BankOutlined
+    BankOutlined,
+    ShopOutlined,
+    LockOutlined
 } from '@ant-design/icons';
 
 import {
     getCompanyInfo,
     createCompany,
-    updateCompany,
-    deleteCompany,
-    restoreCompany
+    updateCompany
 } from '../../services/companyService';
 
 const { Text, Title } = Typography;
 const { useBreakpoint } = Grid;
 
 const Company = () => {
-    const [activeCompany, setActiveCompany] = useState(null);
-    const [inactiveCompanies, setInactiveCompanies] = useState([]);
+    const [company, setCompany] = useState(null);
     const [loading, setLoading] = useState(false);
     const [openModal, setOpenModal] = useState(false);
-    const [editing, setEditing] = useState(null);
     const [form] = Form.useForm();
     const screens = useBreakpoint();
     const isMobile = !screens.md;
 
-
-    const fetchCompanies = async () => {
+    /* ================= TẢI DỮ LIỆU DUY NHẤT ================= */
+    const fetchCompanyData = async () => {
         setLoading(true);
         try {
-            // 1. Lấy công ty đang active
-            const activeRes = await getCompanyInfo({ isActive: true });
-            const data = activeRes.data.data;
+            const res = await getCompanyInfo({ isActive: true });
+            const data = res.data?.data;
 
-            // Backend trả về mảng, ta cần lấy phần tử đầu tiên [0]
             if (Array.isArray(data) && data.length > 0) {
-                setActiveCompany(data[0]);
+                setCompany(data[0]);
             } else if (data && !Array.isArray(data)) {
-                setActiveCompany(data); // Đề phòng trường hợp trả về object đơn
+                setCompany(data);
             } else {
-                setActiveCompany(null);
+                setCompany(null);
             }
         } catch (err) {
-            setActiveCompany(null);
-        }
-
-        try {
-            // 2. Lấy danh sách inactive (Giữ nguyên logic mảng)
-            const inactiveRes = await getCompanyInfo({ isActive: false });
-            const data = inactiveRes.data.data;
-            setInactiveCompanies(Array.isArray(data) ? data : (data ? [data] : []));
-        } catch (err) {
-            setInactiveCompanies([]);
+            console.error(err);
+            message.error('Không thể tải thông tin cấu hình cửa hàng');
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchCompanies();
+        fetchCompanyData();
     }, []);
 
+    /* ================= XỬ LÝ LƯU / CẬP NHẬT ================= */
     const handleSubmit = async () => {
         try {
+            // Step 1: Kiểm tra validate toàn bộ form ở client
             const values = await form.validateFields();
-            if (editing) {
-                await updateCompany(editing._id, values);
-                message.success('Cập nhật thành công');
+            console.log(">>> KHỐI DỮ LIỆU ĐÃ VƯỢT QUA VALIDATE CLIENT:", values);
+
+            // Step 2: Gọi API cập nhật và truyền toàn bộ values (bao gồm cả adminPassword)
+            if (company?._id) {
+                console.log(">>> ĐANG GỬI API PATCH CẬP NHẬT SANG BACKEND...");
+                const res = await updateCompany(company._id, values);
+
+                if (res.data?.success) {
+                    message.success('Cập nhật thông tin cửa hàng thành công');
+                    setOpenModal(false);
+                    fetchCompanyData();
+                }
             } else {
-                await createCompany(values);
-                message.success('Tạo mới thành công');
+                const res = await createCompany(values);
+                if (res.data?.success) {
+                    message.success('Khởi tạo hồ sơ cửa hàng thành công');
+                    setOpenModal(false);
+                    fetchCompanyData();
+                }
             }
-            setOpenModal(false);
-            setEditing(null);
-            form.resetFields();
-            fetchCompanies();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Thao tác thất bại');
+            // In ra để phân biệt rõ lỗi do chưa điền mật khẩu hay lỗi do Backend trả về
+            console.log(">>> BẮT ĐƯỢC LỖI TẠI HÀM SUBMIT:", err);
+
+            if (err.errorFields) {
+                // Lỗi do client chưa điền đủ form (như cái ảnh bạn chụp)
+                message.error('Vui lòng điền đầy đủ các trường bắt buộc và Mật khẩu Admin!');
+            } else {
+                // Lỗi do Backend trả về (Ví dụ: Mật khẩu sai, status 400/401)
+                message.error(err.response?.data?.message || 'Mật khẩu Admin không chính xác. Lưu thất bại!');
+            }
         }
     };
-
-    // Component render từng Card Công ty
-    const CompanyCard = ({ company, isInactive = false }) => (
-        <Card
-            hoverable
-            className="h-full"
-            bodyStyle={{ padding: 16 }}
-            style={{
-                borderLeft: `4px solid ${isInactive ? '#ff4d4f' : '#52c41a'}`,
-                borderRadius: 12
-            }}
-            actions={[
-                !isInactive ? (
-                    <Tooltip title="Chỉnh sửa" key="edit">
-                        <EditOutlined onClick={() => {
-                            setEditing(company);
-                            form.setFieldsValue(company);
-                            setOpenModal(true);
-                        }} />
-                    </Tooltip>) : (
-                    // Nếu inactive, có thể để một icon disabled hoặc bỏ trống phần tử này
-                    <Tooltip title="Không thể sửa công ty đã ngưng hoạt động" key="edit-disabled">
-                        <EditOutlined style={{ cursor: 'not-allowed', color: '#d9d9d9' }} />
-                    </Tooltip>
-                ),
-
-                isInactive ? (
-                    <Tooltip title="Khôi phục">
-                        <ReloadOutlined key="restore" onClick={() => restoreCompany(company._id).then(fetchCompanies)} />
-                    </Tooltip>
-                ) : (
-                    <Popconfirm
-                        title="Bạn có chắc muốn xóa công ty này?"
-                        onConfirm={() => deleteCompany(company._id).then(fetchCompanies)}
-                    >
-                        <DeleteOutlined className="text-red-500" />
-                    </Popconfirm>
-                ),
-            ]}
-        >
-            <div className="mb-3 flex justify-between items-start">
-                <Title level={5} style={{ margin: 0 }}>{company.name}</Title>
-                <Tag color={isInactive ? 'error' : 'success'}>
-                    {isInactive ? 'Ngừng hoạt động' : 'Đang sử dụng'}
-                </Tag>
-            </div>
-
-            <Space direction="vertical" className="w-full text-gray-600">
-                <div><PhoneOutlined className="mr-2" /> {company.phone}</div>
-                <div><MailOutlined className="mr-2" /> {company.email || 'N/A'}</div>
-                {company.taxCode && (
-                    <div><BankOutlined className="mr-2" /> MST: {company.taxCode}</div>
-                )}
-                <div className="truncate">
-                    <EnvironmentOutlined className="mr-2" />
-                    <Text type="secondary" className="text-xs">{company.address || 'Chưa cập nhật địa chỉ'}</Text>
-                </div>
-            </Space>
-        </Card>
-    );
+    const openEditModal = () => {
+        if (company) {
+            // Đổ dữ liệu cũ vào form, loại bỏ trường password của lần nhập trước nếu có
+            form.setFieldsValue({
+                ...company,
+                adminPassword: ''
+            });
+        } else {
+            form.resetFields();
+        }
+        setOpenModal(true);
+    };
 
     return (
-        <div className="px-4 md:px-6 py-4 md:py-6 bg-gray-50 min-h-screen">
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
-                <Title level={3}>Quản lý Công ty</Title>
-                {!activeCompany && (
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        block={isMobile}
-                        onClick={() => {
-                            setEditing(null);
-                            form.resetFields();
-                            setOpenModal(true);
-                        }}
-                    >
-                        Thêm công ty mới
-                    </Button>
-                )}
+        <div className="p-4 md:p-6 bg-gray-50 min-h-screen flex flex-col justify-start items-center">
+            <div className="w-full max-w-4xl">
+
+                {/* TIÊU ĐỀ CHÍNH */}
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
+                    <Space direction="vertical" size={1}>
+                        <Title level={3} style={{ margin: 0 }}>Thông tin Công ty</Title>
+                        <Text type="secondary" className="text-xs">Thông tin này sẽ in trực tiếp lên tem nhãn kính mắt và phiếu xuất kho</Text>
+                    </Space>
+
+                    {company && (
+                        <Button
+                            type="primary"
+                            icon={<EditOutlined />}
+                            onClick={openEditModal}
+                            className="w-full sm:w-auto"
+                        >
+                            Chỉnh sửa thông tin
+                        </Button>
+                    )}
+                </div>
+
+                {/* KHỐI HIỂN THỊ PROFILE ĐỘC BẢN */}
+                <Card
+                    loading={loading}
+                    className="shadow-md border-t-4 border-t-[#1D6F42] rounded-xl overflow-hidden bg-white"
+                >
+                    {company ? (
+                        <div className="space-y-6">
+                            <div className="flex flex-col sm:flex-row items-center gap-4 border-b pb-5">
+                                <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center text-[#1D6F42] text-3xl shadow-inner">
+                                    <ShopOutlined />
+                                </div>
+                                <div className="text-center sm:text-left flex-1">
+                                    <Title level={4} style={{ margin: '0 0 4px 0' }}>{company.name}</Title>
+                                    <Space wrap className="justify-center sm:justify-start">
+                                        <Tag color="success" className="rounded-full px-3">Hệ thống đang hoạt động</Tag>
+                                        {company.taxCode && <Tag color="blue" className="rounded-full">MST: {company.taxCode}</Tag>}
+                                    </Space>
+                                </div>
+                            </div>
+
+                            <Descriptions
+                                bordered
+                                column={1}
+                                size={isMobile ? "small" : "middle"}
+                                className="bg-gray-50/50 rounded-lg overflow-hidden shadow-inner"
+                                labelStyle={{
+                                    width: isMobile ? '35%' : '25%',
+                                    background: '#f8fafc',
+                                    fontWeight: 'bold',
+                                    color: '#334155',
+                                    borderRight: '1px solid #f1f5f9'
+                                }}
+                                contentStyle={{
+                                    background: '#ffffff',
+                                    color: '#0f172a'
+                                }}
+                            >
+                                <Descriptions.Item label={<Space><PhoneOutlined className="text-green-600" /><span>Số điện thoại</span></Space>}>
+                                    <Text copyable strong>{company.phone}</Text>
+                                </Descriptions.Item>
+
+                                <Descriptions.Item label={<Space><MailOutlined className="text-blue-500" /><span>Email cửa hàng</span></Space>}>
+                                    {company.email ? <Text copyable>{company.email}</Text> : <Text type="secondary" italic>Chưa cấu hình</Text>}
+                                </Descriptions.Item>
+
+                                <Descriptions.Item label={<Space><BankOutlined className="text-amber-500" /><span>Mã số thuế</span></Space>}>
+                                    {company.taxCode ? <Text copyable strong>{company.taxCode}</Text> : <Text type="secondary" italic>Chưa cấu hình</Text>}
+                                </Descriptions.Item>
+
+                                <Descriptions.Item label={<Space><EnvironmentOutlined className="text-red-500" /><span>Địa chỉ cơ sở</span></Space>}>
+                                    <Text className="text-gray-700">{company.address || <Text type="secondary" italic>Chưa cấu hình địa chỉ chi tiết</Text>}</Text>
+                                </Descriptions.Item>
+                            </Descriptions>
+                        </div>
+                    ) : (
+                        <Empty
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            description={
+                                <Space direction="vertical" size={2}>
+                                    <Text type="secondary">Hồ sơ cấu hình doanh nghiệp trống.</Text>
+                                    <Text type="secondary" className="text-xs">Vui lòng khởi tạo thông tin ban đầu để hoàn thiện biên lai xuất kho</Text>
+                                </Space>
+                            }
+                            className="py-8"
+                        >
+                            <Button
+                                type="primary"
+                                icon={<PlusOutlined />}
+                                onClick={openEditModal}
+                                className="bg-[#1D6F42] border-[#1D6F42] hover:!bg-[#278950]"
+                            >
+                                Khởi tạo hồ sơ ngay
+                            </Button>
+                        </Empty>
+                    )}
+                </Card>
             </div>
 
-            <Divider orientation="left">Công ty đang sử dụng</Divider>
-            <Row gutter={[16, 16]} className="mb-8">
-                {activeCompany ? (
-                    <Col xs={24} sm={12} md={12} lg={8} xl={6}>
-                        <CompanyCard company={activeCompany} />
-                    </Col>
-                ) : (
-                    <Col span={24}><Empty description="Chưa có công ty hoạt động" /></Col>
-                )}
-            </Row>
-
-            <Divider orientation="left">Danh sách đã xóa / Ngừng hoạt động</Divider>
-            <Row gutter={[16, 16]}>
-                {inactiveCompanies.length > 0 ? (
-                    inactiveCompanies.map(comp => (
-                        <Col xs={24} sm={12} lg={8} key={comp._id}>
-                            <CompanyCard company={comp} isInactive />
-                        </Col>
-                    ))
-                ) : (
-                    <Col span={24}><Empty description="Thùng rác trống" /></Col>
-                )}
-            </Row>
-
+            {/* MODAL EDIT / CREATE RÚT GỌN CHUNG MỘT FORM */}
             <Modal
-                title={editing ? 'Cập nhật thông tin công ty' : 'Tạo hồ sơ công ty'}
+                title={company?._id ? (
+                    <Space><EditOutlined className="text-[#1D6F42]" /> <span className="text-base font-semibold">Cập nhật hồ sơ hệ thống</span></Space>
+                ) : (
+                    <Space><PlusOutlined className="text-blue-600" /> <span className="text-base font-semibold">Khởi tạo thông tin hệ thống</span></Space>
+                )}
                 open={openModal}
                 onOk={handleSubmit}
                 onCancel={() => setOpenModal(false)}
-                okText="Lưu thông tin"
-                cancelText="Hủy"
-                width={isMobile ? "100%" : 600}
+                okText="Xác nhận & Lưu"
+                cancelText="Hủy bỏ"
+                width={isMobile ? "100%" : 550}
+                okButtonProps={{ className: "bg-[#1D6F42] border-[#1D6F42] hover:!bg-[#278950]" }}
                 style={isMobile ? { top: 0, paddingBottom: 0 } : {}}
+                maskClosable={false}
             >
                 <Form layout="vertical" form={form} className="mt-4">
+                    <Form.Item
+                        label={<b>Tên doanh nghiệp / Cửa hàng</b>}
+                        name="name"
+                        rules={[{ required: true, message: 'Tên cửa hàng không được để trống' }]}
+                    >
+                        <Input placeholder="Ví dụ: Siêu Thị Mắt Kính Christian DG" className="rounded-md" />
+                    </Form.Item>
+
                     <Row gutter={16}>
-                        <Col span={24}>
-                            <Form.Item label="Tên công ty" name="name" rules={[{ required: true, message: 'Vui lòng nhập tên!' }]}>
-                                <Input placeholder="Công ty TNHH..." />
+                        <Col xs={24} sm={12}>
+                            <Form.Item
+                                label={<b>Số điện thoại liên hệ</b>}
+                                name="phone"
+                                rules={[{ required: true, message: 'Nhập hotline liên hệ' }]}
+                            >
+                                <Input placeholder="0901234567" className="rounded-md" />
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
-                            <Form.Item label="Số điện thoại" name="phone" rules={[{ required: true }]}>
-                                <Input placeholder="090..." />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item label="Email" name="email">
-                                <Input placeholder="example@gmail.com" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={24}>
-                            <Form.Item label="Mã số thuế" name="taxCode">
-                                <Input placeholder="Mã số doanh nghiệp" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={24}>
-                            <Form.Item label="Địa chỉ công ty" name="address">
-                                <Input.TextArea rows={3} placeholder="Địa chỉ chi tiết..." />
+                        <Col xs={24} sm={12}>
+                            <Form.Item label={<b>Email nhận thông báo</b>} name="email">
+                                <Input placeholder="hotro@christiandg.com" className="rounded-md" />
                             </Form.Item>
                         </Col>
                     </Row>
+
+                    <Form.Item label={<b>Mã số thuế doanh nghiệp (Nếu có)</b>} name="taxCode">
+                        <Input placeholder="Mã số doanh nghiệp gồm 10 hoặc 13 chữ số" className="rounded-md font-mono" />
+                    </Form.Item>
+
+                    <Form.Item label={<b>Địa chỉ chi tiết cửa hàng</b>} name="address">
+                        <Input.TextArea rows={3} placeholder="Số nhà, tên đường, phường/xã, quận/huyện..." className="rounded-md" />
+                    </Form.Item>
+
+                    {/* PHẦN XÁC THỰC MẬT KHẨU ADMIN TRƯỚC KHI LƯU */}
+                    <Divider className="my-4" />
+                    <div className="bg-red-50/50 p-3 rounded-lg border border-red-100">
+                        <Form.Item
+                            label={<span className="text-red-700 font-semibold">Mật khẩu xác nhận của Admin</span>}
+                            name="adminPassword"
+                            rules={[{ required: true, message: 'Vui lòng nhập mật khẩu Admin để xác thực quyền thay đổi!' }]}
+                        >
+                            <Input.Password
+                                prefix={<LockOutlined className="text-red-500" />}
+                                placeholder="Nhập mật khẩu tài khoản Admin của bạn"
+                                className="rounded-md"
+                            />
+                        </Form.Item>
+                    </div>
                 </Form>
             </Modal>
         </div>

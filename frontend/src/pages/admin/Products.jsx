@@ -16,7 +16,7 @@ import {
     Grid,
     Upload
 } from 'antd';
-import { PlusOutlined, RobotOutlined, DownloadOutlined } from '@ant-design/icons';
+import { PlusOutlined, FileExcelOutlined, DownloadOutlined } from '@ant-design/icons';
 import debounce from 'lodash/debounce';
 
 import {
@@ -478,11 +478,15 @@ const Products = () => {
                         disabled={importLoading}
                     >
                         <Button
-                            icon={<RobotOutlined />}
+                            icon={<FileExcelOutlined />}
                             loading={importLoading}
-                            className="bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100"
+                            className="text-white bg-[#1D6F42] border-[#1D6F42] 
+                                        hover:!bg-[#278950] hover:!text-white hover:!border-[#278950] 
+                                        focus:!bg-[#1D6F42] focus:!text-white focus:!border-[#1D6F42]
+                                        active:!bg-[#155231] 
+                                        transition-all duration-200"
                         >
-                            AI Import Kho
+                            Import By Excel
                         </Button>
                     </Upload>
 
