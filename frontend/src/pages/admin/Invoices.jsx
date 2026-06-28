@@ -629,7 +629,7 @@ const Invoices = () => {
                 onOk={handleCreate}
                 onCancel={() => setOpenModal(false)}
                 width="100%"
-                style={{ maxWidth: 1100 }}
+                style={{ maxWidth: 1100, top: 20 }}
             >
                 <Form
                     layout="vertical"
@@ -773,126 +773,128 @@ const Invoices = () => {
 
                     <Divider style={{ margin: '12px 0' }} />
 
-                    <Form.List name="items">
-                        {(fields, { add, remove }) => (
-                            <>
-                                {fields.map(({ key, name, ...restField }) => (
+                    <div style={{ maxHeight: '42vh', overflowY: 'auto', paddingRight: '12px', paddingLeft: '4px' }} className="mb-4">
+                        <Form.List name="items">
+                            {(fields, { add, remove }) => (
+                                <>
+                                    {fields.map(({ key, name, ...restField }) => (
 
-                                    <div
-                                        key={key}
-                                        className="border rounded-lg p-4 mb-4 bg-gray-50"
-                                    >
-                                        {/* Trường ẩn để giữ giá trị SKU gửi lên Backend */}
-
-                                        <Form.Item name={[name, 'sku']} hidden><Input /></Form.Item>
-                                        {/* Trường ẩn cho các thông tin snapshot khác nếu cần */}
-                                        {/* <Form.Item name={[name, 'brand']} hidden><Input /></Form.Item>
-                                        <Form.Item name={[name, 'unit']} hidden><Input /></Form.Item> */}
-                                        <Form.Item name={[name, 'originCountry']} hidden><Input /></Form.Item>
-                                        {/* Hàng 1: SKU */}
-                                        <Form.Item
-                                            {...restField}
-                                            label="Sản phẩm (SKU)"
-                                            name={[name, 'variantId']}
-                                            rules={[{ required: true }]}
+                                        <div
+                                            key={key}
+                                            className="border rounded-lg p-4 mb-4 bg-gray-50"
                                         >
-                                            <Select
-                                                showSearch
-                                                placeholder="Chọn SKU"
-                                                onChange={(val) => handleProductChange(val, name)}
-                                                filterOption={(input, option) =>
-                                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                                }
-                                                options={variants.map(v => ({
-                                                    value: v._id,
-                                                    label: `${v.sku} - Tồn: ${v.inventory || 0}`
-                                                }))}
-                                            />
-                                        </Form.Item>
+                                            {/* Trường ẩn để giữ giá trị SKU gửi lên Backend */}
 
-                                        {/* Hàng 2: Brand + Unit */}
-                                        <Row gutter={12}>
-                                            <Col xs={12}>
-                                                <Form.Item label="Hãng" name={[name, 'brand']}>
-                                                    <Input disabled />
-                                                </Form.Item>
-                                            </Col>
-                                            <Col xs={12}>
-                                                <Form.Item label="Đvt" name={[name, 'unit']}>
-                                                    <Input disabled />
-                                                </Form.Item>
-                                            </Col>
-                                        </Row>
-
-                                        {/* Hàng 3: Giá + SL */}
-                                        <Row gutter={12}>
-                                            <Col xs={12}>
-                                                <Form.Item
-                                                    label="Đơn giá"
-                                                    name={[name, 'price']}
-                                                    getValueProps={(value) => ({
-                                                        value: value != null ? value.toLocaleString('en-US') : '',
-                                                    })}
-                                                >
-                                                    <Input disabled />
-                                                </Form.Item>
-                                            </Col>
-                                            <Col xs={12}>
-                                                <Form.Item
-                                                    label="Số lượng"
-                                                    name={[name, 'quantity']}
-                                                    rules={[{ required: true }]}
-                                                >
-                                                    <InputNumber min={1} className="w-full" />
-                                                </Form.Item>
-                                            </Col>
-                                        </Row>
-
-                                        {/* Hàng 4: CK + Thành tiền */}
-                                        <Row gutter={12}>
-                                            <Col xs={12}>
-                                                <Form.Item
-                                                    label="Chiết khấu (%)"
-                                                    name={[name, 'discountPercent']}
-                                                >
-                                                    <InputNumber min={0} max={100} className="w-full" />
-                                                </Form.Item>
-                                            </Col>
-
-                                            <Col xs={12} className="flex flex-col justify-end">
-                                                <Form.Item
-                                                    label="Thanh toán"
-                                                >
-                                                    <Text type="danger" strong>
-                                                        {calculateRowTotal(name).toLocaleString()}₫
-                                                    </Text>
-                                                </Form.Item>
-                                            </Col>
-                                        </Row>
-
-                                        <div className="text-right mt-2" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0' }}>
-                                            <Button
-                                                danger
-                                                icon={<DeleteOutlined />}
-                                                disabled={fields.length <= 1}
-                                                onClick={() => {
-                                                    remove(name);
-                                                    calculateTotals();
-                                                }}
+                                            <Form.Item name={[name, 'sku']} hidden><Input /></Form.Item>
+                                            {/* Trường ẩn cho các thông tin snapshot khác nếu cần */}
+                                            {/* <Form.Item name={[name, 'brand']} hidden><Input /></Form.Item>
+                                            <Form.Item name={[name, 'unit']} hidden><Input /></Form.Item> */}
+                                            <Form.Item name={[name, 'originCountry']} hidden><Input /></Form.Item>
+                                            {/* Hàng 1: SKU */}
+                                            <Form.Item
+                                                {...restField}
+                                                label="Sản phẩm (SKU)"
+                                                name={[name, 'variantId']}
+                                                rules={[{ required: true }]}
                                             >
-                                                Xoá dòng
-                                            </Button>
+                                                <Select
+                                                    showSearch
+                                                    placeholder="Chọn SKU"
+                                                    onChange={(val) => handleProductChange(val, name)}
+                                                    filterOption={(input, option) =>
+                                                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                                    }
+                                                    options={variants.map(v => ({
+                                                        value: v._id,
+                                                        label: `${v.sku} - Tồn: ${v.inventory || 0}`
+                                                    }))}
+                                                />
+                                            </Form.Item>
+
+                                            {/* Hàng 2: Brand + Unit */}
+                                            <Row gutter={12}>
+                                                <Col xs={12}>
+                                                    <Form.Item label="Hãng" name={[name, 'brand']}>
+                                                        <Input disabled />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={12}>
+                                                    <Form.Item label="Đvt" name={[name, 'unit']}>
+                                                        <Input disabled />
+                                                    </Form.Item>
+                                                </Col>
+                                            </Row>
+
+                                            {/* Hàng 3: Giá + SL */}
+                                            <Row gutter={12}>
+                                                <Col xs={12}>
+                                                    <Form.Item
+                                                        label="Đơn giá"
+                                                        name={[name, 'price']}
+                                                        getValueProps={(value) => ({
+                                                            value: value != null ? value.toLocaleString('en-US') : '',
+                                                        })}
+                                                    >
+                                                        <Input disabled />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={12}>
+                                                    <Form.Item
+                                                        label="Số lượng"
+                                                        name={[name, 'quantity']}
+                                                        rules={[{ required: true }]}
+                                                    >
+                                                        <InputNumber min={1} className="w-full" />
+                                                    </Form.Item>
+                                                </Col>
+                                            </Row>
+
+                                            {/* Hàng 4: CK + Thanh toán */}
+                                            <Row gutter={12}>
+                                                <Col xs={12}>
+                                                    <Form.Item
+                                                        label="Chiết khấu (%)"
+                                                        name={[name, 'discountPercent']}
+                                                    >
+                                                        <InputNumber min={0} max={100} className="w-full" />
+                                                    </Form.Item>
+                                                </Col>
+
+                                                <Col xs={12} className="flex flex-col justify-end">
+                                                    <Form.Item
+                                                        label="Thanh toán"
+                                                    >
+                                                        <Text type="danger" strong>
+                                                            {calculateRowTotal(name).toLocaleString()}₫
+                                                        </Text>
+                                                    </Form.Item>
+                                                </Col>
+                                            </Row>
+
+                                            <div className="text-right mt-2" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0' }}>
+                                                <Button
+                                                    danger
+                                                    icon={<DeleteOutlined />}
+                                                    disabled={fields.length <= 1}
+                                                    onClick={() => {
+                                                        remove(name);
+                                                        calculateTotals();
+                                                    }}
+                                                >
+                                                    Xoá dòng
+                                                </Button>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
 
-                                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                    Thêm dòng sản phẩm
-                                </Button>
+                                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                                        Thêm dòng sản phẩm
+                                    </Button>
 
-                            </>
-                        )}
-                    </Form.List>
+                                </>
+                            )}
+                        </Form.List>
+                    </div>
 
                     {/* SUMMARY SECTION */}
                     <div style={{ marginTop: 24, padding: '16px', background: '#fafafa', borderRadius: '8px' }}>

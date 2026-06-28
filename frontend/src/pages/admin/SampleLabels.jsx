@@ -243,6 +243,41 @@ const SampleLabels = () => {
         }
     };
 
+    const handleOpenPrintAllModal = () => {
+        form.resetFields();
+
+        if (!variants || variants.length === 0) {
+            message.warning('Không có sản phẩm nào trong hệ thống để in');
+            return;
+        }
+
+        const allItems = variants.map((v) => {
+            const productName = v.productId?.name || '';
+            const brand = v.productId?.brand || 'N/A';
+            const originCountry = v.productId?.originCountry || 'N/A';
+            const unit = v.unit || 'Cây';
+
+            return {
+                variantId: v._id,
+                sku: v.sku,
+                productName: productName,
+                brand: brand,
+                originCountry: originCountry,
+                unit: unit,
+                price: v.price,
+                quantity: 1, // Mặc định số lượng là 1
+                customerName: '' // Trống để in mặc định Hàng mẫu
+            };
+        });
+
+        form.setFieldsValue({
+            items: allItems
+        });
+
+        calculateTotals();
+        setOpenModal(true);
+    };
+
     /* ================= COLUMNS TABLE ================= */
     const columns = [
         { title: 'Mã phiếu', dataIndex: 'invoiceCode' },
@@ -324,17 +359,39 @@ const SampleLabels = () => {
                     </h2>
                 </div>
 
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={() => {
-                        form.resetFields();
-                        form.setFieldsValue({ items: [{}] });
-                        setOpenModal(true);
-                    }}
-                >
-                    Tạo phiếu in tem mẫu
-                </Button>
+                <Space>
+                    <Button
+                        icon={<PlusOutlined />}
+                        onClick={handleOpenPrintAllModal}
+                        style={{
+                            backgroundColor: '#fff7e6',
+                            borderColor: '#ffd591',
+                            color: '#d46b08',
+                            transition: 'all 0.3s',
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#ffe7ba';
+                            e.currentTarget.style.borderColor = '#ffc069';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = '#fff7e6';
+                            e.currentTarget.style.borderColor = '#ffd591';
+                        }}
+                    >
+                        Tạo phiếu in tất cả
+                    </Button>
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => {
+                            form.resetFields();
+                            form.setFieldsValue({ items: [{}] });
+                            setOpenModal(true);
+                        }}
+                    >
+                        Tạo phiếu in tem mẫu
+                    </Button>
+                </Space>
             </div>
 
             {/* FILTER BAR */}
@@ -416,6 +473,7 @@ const SampleLabels = () => {
                     <Button key="close" onClick={() => setOpenDetail(false)}>Đóng</Button>
                 ]}
                 width={750}
+                style={{ top: 20 }}
             >
                 {viewingInvoice && (
                     <div className="space-y-4">
@@ -438,12 +496,13 @@ const SampleLabels = () => {
 
                         <Divider style={{ margin: '16px 0' }} />
                         <h4 className="font-semibold text-gray-700 mb-2">Danh sách sản phẩm in tem</h4>
-                        <Table
+                         <Table
                             dataSource={viewingInvoice.items}
                             pagination={false}
                             rowKey={(record, idx) => record.variantId + record.sku + idx}
                             size="small"
                             bordered
+                            scroll={{ y: '40vh' }}
                             columns={[
                                 { title: 'Mã hàng (SKU)', dataIndex: 'sku' },
                                 { title: 'Thương hiệu', dataIndex: 'brand' },
@@ -464,7 +523,7 @@ const SampleLabels = () => {
                 onOk={handleCreate}
                 onCancel={() => setOpenModal(false)}
                 width="100%"
-                style={{ maxWidth: 1000 }}
+                style={{ maxWidth: 1000, top: 20 }}
                 destroyOnClose
             >
                 <Form
@@ -510,100 +569,102 @@ const SampleLabels = () => {
 
                     <Divider style={{ margin: '12px 0' }}><Text strong className="text-blue-500">Danh sách sản phẩm in tem</Text></Divider>
 
-                    <Form.List name="items">
-                        {(fields, { add, remove }) => (
-                            <>
-                                {fields.map(({ key, name, ...restField }) => (
-                                    <div key={key} className="border rounded-lg p-4 mb-4 bg-gray-50 relative">
-                                        {/* Hidden fields */}
-                                        <Form.Item name={[name, 'sku']} hidden><Input /></Form.Item>
-                                        <Form.Item name={[name, 'productName']} hidden><Input /></Form.Item>
-                                        <Form.Item name={[name, 'originCountry']} hidden><Input /></Form.Item>
+                    <div style={{ maxHeight: '42vh', overflowY: 'auto', paddingRight: '12px', paddingLeft: '4px' }} className="mb-4">
+                        <Form.List name="items">
+                            {(fields, { add, remove }) => (
+                                <>
+                                    {fields.map(({ key, name, ...restField }) => (
+                                        <div key={key} className="border rounded-lg p-4 mb-4 bg-gray-50 relative">
+                                            {/* Hidden fields */}
+                                            <Form.Item name={[name, 'sku']} hidden><Input /></Form.Item>
+                                            <Form.Item name={[name, 'productName']} hidden><Input /></Form.Item>
+                                            <Form.Item name={[name, 'originCountry']} hidden><Input /></Form.Item>
 
-                                        <Row gutter={12}>
-                                            <Col xs={24} md={12}>
-                                                <Form.Item
-                                                    {...restField}
-                                                    label="Sản phẩm (SKU)"
-                                                    name={[name, 'variantId']}
-                                                    rules={[{ required: true, message: 'Vui lòng chọn sản phẩm' }]}
-                                                >
-                                                    <Select
-                                                        showSearch
-                                                        placeholder="Tìm theo SKU"
-                                                        onChange={(val) => handleProductChange(val, name)}
-                                                        filterOption={(input, option) =>
-                                                            (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                                        }
-                                                        options={variants.map(v => ({
-                                                            value: v._id,
-                                                            label: `${v.sku} - ${v.productId?.name || ''} (Tồn: ${v.inventory || 0})`
-                                                        }))}
-                                                    />
-                                                </Form.Item>
-                                            </Col>
+                                            <Row gutter={12}>
+                                                <Col xs={24} md={12}>
+                                                    <Form.Item
+                                                        {...restField}
+                                                        label="Sản phẩm (SKU)"
+                                                        name={[name, 'variantId']}
+                                                        rules={[{ required: true, message: 'Vui lòng chọn sản phẩm' }]}
+                                                    >
+                                                        <Select
+                                                            showSearch
+                                                            placeholder="Tìm theo SKU"
+                                                            onChange={(val) => handleProductChange(val, name)}
+                                                            filterOption={(input, option) =>
+                                                                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                                            }
+                                                            options={variants.map(v => ({
+                                                                value: v._id,
+                                                                label: `${v.sku} - ${v.productId?.name || ''} (Tồn: ${v.inventory || 0})`
+                                                            }))}
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
 
-                                            <Col xs={12} md={6}>
-                                                <Form.Item label="Hãng sản xuất" name={[name, 'brand']}>
-                                                    <Input disabled placeholder="Hãng sản xuất" className="bg-gray-100" />
-                                                </Form.Item>
-                                            </Col>
+                                                <Col xs={12} md={6}>
+                                                    <Form.Item label="Hãng sản xuất" name={[name, 'brand']}>
+                                                        <Input disabled placeholder="Hãng sản xuất" className="bg-gray-100" />
+                                                    </Form.Item>
+                                                </Col>
 
-                                            <Col xs={12} md={6}>
-                                                <Form.Item label="Đơn vị tính" name={[name, 'unit']}>
-                                                    <Input disabled placeholder="Đvt" className="bg-gray-100" />
-                                                </Form.Item>
-                                            </Col>
-                                        </Row>
+                                                <Col xs={12} md={6}>
+                                                    <Form.Item label="Đơn vị tính" name={[name, 'unit']}>
+                                                        <Input disabled placeholder="Đvt" className="bg-gray-100" />
+                                                    </Form.Item>
+                                                </Col>
+                                            </Row>
 
-                                        <Row gutter={12}>
-                                            <Col xs={24} sm={12} md={8}>
-                                                <Form.Item
-                                                    label="Đơn giá in (VND)"
-                                                    name={[name, 'price']}
-                                                    rules={[{ required: true, message: 'Nhập giá hiển thị tem' }]}
-                                                >
-                                                    <InputNumber
-                                                        className="w-full"
-                                                        min={0}
-                                                        formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                                        parser={v => v.replace(/\$\s?|(,*)/g, '')}
-                                                        onChange={() => calculateTotals()}
-                                                    />
-                                                </Form.Item>
-                                            </Col>
+                                            <Row gutter={12}>
+                                                <Col xs={24} sm={12} md={8}>
+                                                    <Form.Item
+                                                        label="Đơn giá in (VND)"
+                                                        name={[name, 'price']}
+                                                        rules={[{ required: true, message: 'Nhập giá hiển thị tem' }]}
+                                                    >
+                                                        <InputNumber
+                                                            className="w-full"
+                                                            min={0}
+                                                            formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                                            parser={v => v.replace(/\$\s?|(,*)/g, '')}
+                                                            onChange={() => calculateTotals()}
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
 
-                                            <Col xs={12} sm={6} md={4}>
-                                                <Form.Item
-                                                    label="Số lượng in"
-                                                    name={[name, 'quantity']}
-                                                    rules={[{ required: true, message: 'Nhập số lượng' }]}
-                                                >
-                                                    <InputNumber min={1} className="w-full" onChange={() => calculateTotals()} />
-                                                </Form.Item>
-                                            </Col>
+                                                <Col xs={12} sm={6} md={4}>
+                                                    <Form.Item
+                                                        label="Số lượng in"
+                                                        name={[name, 'quantity']}
+                                                        rules={[{ required: true, message: 'Nhập số lượng' }]}
+                                                    >
+                                                        <InputNumber min={1} className="w-full" onChange={() => calculateTotals()} />
+                                                    </Form.Item>
+                                                </Col>
 
-                                            <Col xs={12} sm={18} md={8}>
-                                                <Form.Item label="Tên cửa hàng in tem (Branding tùy chọn)" name={[name, 'customerName']}>
-                                                    <Input placeholder="Mặc định sẽ in 'Hàng mẫu'" />
-                                                </Form.Item>
-                                            </Col>
+                                                <Col xs={12} sm={18} md={8}>
+                                                    <Form.Item label="Tên cửa hàng in tem (Branding tùy chọn)" name={[name, 'customerName']}>
+                                                        <Input placeholder="Mặc định sẽ in 'Hàng mẫu'" />
+                                                    </Form.Item>
+                                                </Col>
 
-                                            <Col xs={24} md={4} className="flex items-end mb-6">
-                                                <Button danger onClick={() => { remove(name); calculateTotals(); }} className="w-full">
-                                                    Xóa dòng
-                                                </Button>
-                                            </Col>
-                                        </Row>
-                                    </div>
-                                ))}
+                                                <Col xs={24} md={4} className="flex items-end mb-6">
+                                                    <Button danger onClick={() => { remove(name); calculateTotals(); }} className="w-full">
+                                                        Xóa dòng
+                                                    </Button>
+                                                </Col>
+                                            </Row>
+                                        </div>
+                                    ))}
 
-                                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />} className="mb-4">
-                                    Thêm sản phẩm in tem
-                                </Button>
-                            </>
-                        )}
-                    </Form.List>
+                                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />} className="mb-4">
+                                        Thêm sản phẩm in tem
+                                    </Button>
+                                </>
+                            )}
+                        </Form.List>
+                    </div>
 
                     <Divider style={{ margin: '12px 0' }} />
 
