@@ -29,7 +29,8 @@ exports.getInvoices = async (req, res) => {
       isActive,
       paymentMethod,
       dateFrom,
-      dateTo
+      dateTo,
+      isSample
     } = req.query;
 
     const result = await invoiceService.getInvoices({
@@ -39,6 +40,7 @@ exports.getInvoices = async (req, res) => {
       paymentMethod,
       dateFrom,
       dateTo,
+      isSample,
       // Xử lý logic Boolean cho isActive từ query string
       isActive: isActive === 'true' ? true : (isActive === 'false' ? false : undefined)
     });

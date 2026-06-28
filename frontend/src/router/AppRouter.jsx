@@ -13,6 +13,7 @@ import Company from '../pages/admin/Company';
 import Invoices from '../pages/admin/Invoices';
 import Debts from '../pages/admin/Debts';
 import ImportGoods from '../pages/admin/ImportGoods';
+import SampleLabels from '../pages/admin/SampleLabels';
 
 // staff pages
 import StaffLayout from '../components/layout/staff/StaffLayout';
@@ -33,6 +34,7 @@ export default function AppRouter() {
           <Route path="staffs" element={<Staffs />} />
           <Route path="company-info" element={<Company />} />
           <Route path="invoices" element={<Invoices />} />
+          <Route path="sample-labels" element={<SampleLabels />} />
           <Route path="debts" element={<Debts />} />
           <Route path="import-goods" element={<ImportGoods />} />
         </Route>

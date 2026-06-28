@@ -133,6 +133,7 @@ const ImportGoods = () => {
             setImports(res.data.data);
             setPagination({ current: page, pageSize: pageSize, total: res.data.total });
         } catch (err) {
+            console.error(err);
             message.error('Không thể tải lịch sử nhập kho');
         } finally {
             setLoading(false);
@@ -143,7 +144,7 @@ const ImportGoods = () => {
         try {
             const [varRes, staffRes] = await Promise.all([
                 getVariants({ limit: 1000 }),
-                getStaffs({ limit: 1000 })
+                getStaffs({ limit: 1000, isActive: true })
             ]);
             setVariants(varRes.data.data);
             setStaffs(staffRes.data.data);

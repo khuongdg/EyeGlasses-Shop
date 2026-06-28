@@ -9,7 +9,8 @@ import {
   BankOutlined,
   ImportOutlined,
   BoxPlotOutlined,
-  CrownOutlined
+  CrownOutlined,
+  BarcodeOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Typography } from 'antd';
@@ -110,6 +111,11 @@ const AdminSidebar = ({ collapsed, setCollapsed }) => {
             key: '/admin/invoices',
             icon: <FileTextOutlined />,
             label: 'Phiếu xuất kho'
+          },
+          {
+            key: '/admin/sample-labels',
+            icon: <BarcodeOutlined />,
+            label: 'In tem mẫu'
           },
           {
             key: '/admin/debts',

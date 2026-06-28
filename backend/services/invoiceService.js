@@ -6,10 +6,10 @@ const Company = require('../models/Company');
 const Debt = require('../models/Debt');
 const { generateQRCode } = require('../utils/qrCode');
 /**
- * Sinh mã phiếu xuất kho
- * Format: PXK/YYMMDD/XXXX
+ * Sinh mã phiếu xuất kho hoặc phiếu in tem mẫu
+ * Format: PXK/YYMMDD/XXXX hoặc PTM/YYMMDD/XXXX
  */
-const generateInvoiceCode = async () => {
+const generateInvoiceCode = async (isSample = false) => {
   const today = new Date();
 
   const yy = today.getFullYear().toString().slice(2);
@@ -17,10 +17,11 @@ const generateInvoiceCode = async () => {
   const dd = String(today.getDate()).padStart(2, '0');
 
   const dateCode = `${yy}${mm}${dd}`;
+  const prefix = isSample ? 'PTM' : 'PXK';
 
-  // Tìm phiếu cuối cùng trong ngày
+  // Tìm phiếu cuối cùng trong ngày có cùng prefix
   const lastInvoice = await Invoice.findOne({
-    invoiceCode: new RegExp(`^PXK/${dateCode}`)
+    invoiceCode: new RegExp(`^${prefix}/${dateCode}`)
   })
     .sort({ createdAt: -1 })
     .select('invoiceCode');
@@ -31,10 +32,12 @@ const generateInvoiceCode = async () => {
     const lastRunning = parseInt(
       lastInvoice.invoiceCode.split('/')[2]
     );
-    runningNumber = lastRunning + 1;
+    if (!isNaN(lastRunning)) {
+      runningNumber = lastRunning + 1;
+    }
   }
 
-  return `PXK/${dateCode}/${runningNumber.toString().padStart(4, '0')}`;
+  return `${prefix}/${dateCode}/${runningNumber.toString().padStart(4, '0')}`;
 };
 
 exports.createInvoice = async (payload) => {
@@ -49,13 +52,13 @@ exports.createInvoice = async (payload) => {
     }
 
     // 2. Sinh mã phiếu mới
-    const invoiceCode = await generateInvoiceCode();
+    const invoiceCode = await generateInvoiceCode(payload.isSample === true);
 
     // 3. Xử lý danh sách sản phẩm & Sinh QR Code cho từng item
     const itemsWithQr = [];
     for (const item of payload.items) {
       // Dữ liệu nội dung QR Code theo yêu cầu
-      const qrData = `Nhập khẩu và phân phối bởi: ${activeCompany.name}. Địa chỉ: ${activeCompany.address}. Xuất xứ: ${item.originCountry || 'N/A'}. Mã hàng: ${item.sku}. Cửa hàng: ${payload.customerName || 'Khách lẻ'}`;
+      const qrData = `Nhập khẩu và phân phối bởi: ${activeCompany.name}. Địa chỉ: ${activeCompany.address}. Xuất xứ: ${item.originCountry || 'N/A'}. Mã hàng: ${item.sku}. Cửa hàng: ${item.customerName || payload.customerName || (payload.isSample ? 'Hàng mẫu' : 'Khách lẻ')}`;
 
       const qrBase64 = await generateQRCode(qrData);
 
@@ -65,16 +68,18 @@ exports.createInvoice = async (payload) => {
         itemQrCode: qrBase64 // Lưu vào DB để in tem sau này
       });
 
-      // 4. Cập nhật tồn kho (Trừ kho)
+      // 4. Cập nhật tồn kho (Trừ kho) nếu không phải là in tem mẫu
       const variant = await Variant.findById(item.variantId).session(session);
       if (!variant) {
         throw new Error(`Sản phẩm (ID: ${item.variantId}) không tồn tại.`);
       }
-      if (variant.inventory < item.quantity) {
-        throw new Error(`Sản phẩm mã ${variant.sku} không đủ tồn kho (Hiện có: ${variant.inventory}).`);
+      if (!payload.isSample) {
+        if (variant.inventory < item.quantity) {
+          throw new Error(`Sản phẩm mã ${variant.sku} không đủ tồn kho (Hiện có: ${variant.inventory}).`);
+        }
+        variant.inventory -= item.quantity;
+        await variant.save({ session });
       }
-      variant.inventory -= item.quantity;
-      await variant.save({ session });
     }
 
     // 5. Tạo Object Invoice với dữ liệu Snapshot
@@ -86,25 +91,26 @@ exports.createInvoice = async (payload) => {
         phone: activeCompany.phone,
         taxCode: activeCompany.taxCode
       },
-      customerId: payload.customerId,
-      customerName: payload.customerName,
-      customerPhone: payload.customerPhone,
-      customerAddress: payload.customerAddress,
-      customerTaxCode: payload.customerTaxCode,
+      customerId: payload.customerId || undefined,
+      customerName: payload.customerName || (payload.isSample ? 'Hàng mẫu' : 'Khách lẻ'),
+      customerPhone: payload.customerPhone || '',
+      customerAddress: payload.customerAddress || '',
+      customerTaxCode: payload.customerTaxCode || '',
       staffId: payload.staffId,
       staffName: payload.staffName,
       items: itemsWithQr,
       totalQuantity: payload.totalQuantity,
       subTotal: payload.subTotal,
-      totalDiscount: payload.totalDiscount,
+      totalDiscount: payload.totalDiscount || 0,
       totalAmount: payload.totalAmount,
-      paymentMethod: payload.paymentMethod,
-      note: payload.note
+      paymentMethod: payload.paymentMethod || 'CASH',
+      note: payload.note || '',
+      isSample: payload.isSample === true
     });
 
     await newInvoice.save({ session });
-    // NẾU LÀ CÔNG NỢ -> TẠO BẢN GHI DEBT
-    if (payload.paymentMethod === 'DEBT') {
+    // NẾU LÀ CÔNG NỢ & Không phải in tem mẫu -> TẠO BẢN GHI DEBT
+    if (payload.paymentMethod === 'DEBT' && !payload.isSample) {
       const newDebt = new Debt({
         invoiceId: newInvoice._id,
         customerName: payload.customerName,
@@ -134,9 +140,17 @@ exports.getInvoices = async ({
   isActive,
   paymentMethod,
   dateFrom,
-  dateTo
+  dateTo,
+  isSample
 }) => {
   const filter = {};
+
+  // Lọc theo isSample (tem mẫu)
+  if (isSample !== undefined) {
+    filter.isSample = isSample === 'true' || isSample === true;
+  } else {
+    filter.isSample = { $ne: true };
+  }
 
   // Lọc theo trạng thái hoạt động hoặc đã hủy
   if (isActive !== undefined) {
@@ -209,29 +223,34 @@ exports.cancelInvoice = async (invoiceId) => {
         throw new Error('Phiếu này đã được hủy trước đó.');
       }
 
-      // 2. Hoàn kho cho từng sản phẩm bằng $inc (nguyên tử) để tránh conflict
-      const inventoryPromises = invoice.items.map(item => {
-        return Variant.findByIdAndUpdate(
-          item.variantId,
-          { $inc: { inventory: item.quantity } }, // Cộng lại số lượng vào kho
-          { session, new: true }
+      // Nếu là phiếu in tem mẫu -> Xóa vĩnh viễn khỏi Database
+      if (invoice.isSample) {
+        await Invoice.findByIdAndDelete(invoiceId).session(session);
+        resultInvoice = { _id: invoiceId, isDeleted: true };
+      } else {
+        // 2. Hoàn kho cho từng sản phẩm bằng $inc nếu không phải phiếu in mẫu
+        const inventoryPromises = invoice.items.map(item => {
+          return Variant.findByIdAndUpdate(
+            item.variantId,
+            { $inc: { inventory: item.quantity } }, // Cộng lại số lượng vào kho
+            { session, new: true }
+          );
+        });
+        await Promise.all(inventoryPromises);
+
+        // 3. Cập nhật trạng thái phiếu xuất kho
+        invoice.isActive = false;
+        await invoice.save({ session });
+
+        // 4. Cập nhật trạng thái công nợ sang CANCELLED nếu không phải phiếu in mẫu
+        await Debt.findOneAndUpdate(
+          { invoiceId: invoice._id },
+          { status: 'CANCELLED' },
+          { session }
         );
-      });
-      await Promise.all(inventoryPromises);
 
-      // 3. Cập nhật trạng thái phiếu xuất kho
-      invoice.isActive = false;
-      await invoice.save({ session });
-
-      // 4. Cập nhật trạng thái công nợ sang CANCELLED
-      // Sử dụng findOneAndUpdate để thao tác trực tiếp trong session
-      await Debt.findOneAndUpdate(
-        { invoiceId: invoice._id },
-        { status: 'CANCELLED' },
-        { session }
-      );
-
-      resultInvoice = invoice;
+        resultInvoice = invoice;
+      }
     });
 
     return resultInvoice;

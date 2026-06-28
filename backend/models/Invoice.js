@@ -14,7 +14,8 @@ const InvoiceItemSchema = new mongoose.Schema({
   rowTotal: { type: Number, required: true }, // Thành tiền sau CK của dòng này
 
   // TRƯỜNG MỚI: QR Code riêng cho sản phẩm trong phiếu này
-  itemQrCode: { type: String }
+  itemQrCode: { type: String },
+  customerName: { type: String }
 }, { _id: false });
 
 const InvoiceSchema = new mongoose.Schema({
@@ -47,7 +48,8 @@ const InvoiceSchema = new mongoose.Schema({
 
   paymentMethod: { type: String, enum: ['CASH', 'TRANSFER', 'DEBT'], default: 'CASH' },
   note: { type: String },
-  isActive: { type: Boolean, default: true }
+  isActive: { type: Boolean, default: true },
+  isSample: { type: Boolean, default: false }
 }, { timestamps: true });
 
 module.exports = invoiceConnection.model('Invoice', InvoiceSchema);

@@ -10,7 +10,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                         {/* Phần trên: 35mm */}
                         <div className="label-header">
                             <p className="mini-text-head_code">Mã hàng: {item.sku}</p>
-                            <p className="mini-text-head">{customerName}</p>
+                            <p className="mini-text-head">{item.customerName || customerName}</p>
                         </div>
 
                         {/* Phần dưới: 42mm */}
@@ -19,7 +19,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                                 <div className="main-content">
                                     <img src={item.itemQrCode} alt="QR" className="qr-code-img" />
                                     <div className="price-info">
-                                        <p className="store-title">{customerName || 'Undefined'}</p>
+                                        <p className="store-title">{item.customerName || customerName || 'Undefined'}</p>
                                         <p className="sku-sub"><b>Mã hàng: {item.sku}</b></p>
                                         <p className="print-price">{Number(item.printPrice || item.price).toLocaleString()} VND</p>
                                     </div>

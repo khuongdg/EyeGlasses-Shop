@@ -107,7 +107,7 @@ const Invoices = () => {
         try {
             const [cusRes, staffRes] = await Promise.all([
                 getCustomers({ limit: 1000 }),
-                getStaffs({ limit: 1000 })
+                getStaffs({ limit: 1000, isActive: true })
             ]);
             setCustomers(cusRes.data.data);
             setStaffs(staffRes.data.data);
