@@ -7,7 +7,8 @@ const Debt = require('../models/Debt');
 exports.getStats = async ({ startDate, endDate }) => {
     const query = {
         createdAt: { $gte: new Date(startDate), $lte: new Date(endDate) },
-        isActive: true
+        isActive: true,
+        isSample: { $ne: true } // Không tính doanh thu từ phiếu in tem mẫu
     };
 
     // 1. Tính Doanh thu (Cash + Transfer + Completed Debts)

@@ -43,6 +43,12 @@ const Dashboard = () => {
     fetchStats();
   }, [dates]);
 
+  // Tính toán giới hạn trục Y để tránh bị tràn/cắt cột và nhãn số tiền
+  const minVal = stats ? Math.min(0, stats.revenue || 0, stats.importCost || 0, stats.profit || 0) : -1000000;
+  const maxVal = stats ? Math.max(0, stats.revenue || 0, stats.importCost || 0, stats.profit || 0) : 1000000;
+  const padMin = minVal < 0 ? minVal * 1.25 : 0;
+  const padMax = maxVal > 0 ? maxVal * 1.25 : 1000000;
+
   // Cấu hình biểu đồ doanh thu & vốn (Cập nhật chuẩn Ant Design Plots)
   const columnConfig = {
     data: stats ? [
@@ -53,13 +59,35 @@ const Dashboard = () => {
     xField: 'type',
     yField: 'value',
     colorField: 'type',
+    style: {
+      radius: 8,
+      maxWidth: 60
+    },
     scale: {
-      color: { range: ['#1677ff', '#ff4d4f', '#52c41a'] }
+      y: {
+        domain: [padMin, padMax]
+      },
+      color: {
+        range: [
+          '#1890ff', // Doanh thu
+          '#ff7875', // Tiền vốn
+          (stats?.profit || 0) >= 0 ? '#73d13d' : '#f5222d' // Lợi nhuận (xanh lá nếu lãi, đỏ nếu lỗ)
+        ]
+      }
     },
     label: {
       text: (d) => `${d.value.toLocaleString()}₫`,
-      position: 'top',
-      style: { fontWeight: 'bold' }
+      style: {
+        fontWeight: 'bold',
+        fill: '#595959',
+        fontSize: 12
+      }
+    },
+    legend: {
+      color: {
+        position: 'bottom',
+        layout: { justifyContent: 'center' }
+      }
     },
     tooltip: {
       items: [{ channel: 'y', valueFormatter: (v) => `${v.toLocaleString()}₫` }]

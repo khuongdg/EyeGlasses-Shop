@@ -177,14 +177,14 @@ const Staff = () => {
             title: 'Trạng thái',
             dataIndex: 'isActive',
             filters: [
-                { text: 'Active', value: true },
-                { text: 'Inactive', value: false }
+                { text: 'Hoạt động', value: true },
+                { text: 'Không hoạt động', value: false }
             ],
             render: (val) =>
                 val ? (
-                    <Tag color="green">Active</Tag>
+                    <Tag color="green">Hoạt động</Tag>
                 ) : (
-                    <Tag color="red">Inactive</Tag>
+                    <Tag color="red">Không hoạt động</Tag>
                 )
         },
         {
@@ -289,7 +289,7 @@ const Staff = () => {
                                 </div>
 
                                 <Tag color={staff.isActive ? 'green' : 'red'}>
-                                    {staff.isActive ? 'Active' : 'Inactive'}
+                                    {staff.isActive ? 'Hoạt động' : 'Không hoạt động'}
                                 </Tag>
                             </div>
 

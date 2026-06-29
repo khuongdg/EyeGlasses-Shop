@@ -297,7 +297,7 @@ const Products = () => {
 
             const productName = formatString(name);
 
-            // Cập nhật SKU cho từng variant dựa trên tên sản phẩm và màu
+            // Cập nhật SKU & Mã màu cho từng variant dựa trên tên sản phẩm và màu
             const updatedVariants = variants.map((v) => {
                 const color = formatString(v?.colorCode);
                 // Chỉ tự động sinh nếu có tên sản phẩm hoặc màu, định dạng: NAME_COLOR
@@ -305,6 +305,7 @@ const Products = () => {
 
                 return {
                     ...v,
+                    colorCode: color, // Tự động viết hoa mã màu ngay khi nhập
                     sku: autoSku
                 };
             });
@@ -318,6 +319,16 @@ const Products = () => {
     const handleCreate = async () => {
         try {
             const values = await createForm.validateFields();
+            
+            // Đảm bảo viết hoa toàn bộ màu sắc và SKU khi gửi lưu
+            if (values.variants) {
+                values.variants = values.variants.map((v) => ({
+                    ...v,
+                    colorCode: (v.colorCode || '').trim().toUpperCase(),
+                    sku: (v.sku || '').trim().toUpperCase()
+                }));
+            }
+
             await createProduct(values);
 
             message.success('Tạo sản phẩm thành công');
@@ -401,7 +412,7 @@ const Products = () => {
             title: 'Trạng thái',
             dataIndex: 'isActive',
             render: (val) =>
-                val ? <Tag color="green">Active</Tag> : <Tag color="red">Inactive</Tag>
+                val ? <Tag color="green">Hoạt động</Tag> : <Tag color="red">Không hoạt động</Tag>
         },
         {
             title: 'Hành động',
@@ -553,7 +564,7 @@ const Products = () => {
                                 </div>
 
                                 <Tag color={product.isActive ? 'green' : 'red'}>
-                                    {product.isActive ? 'Active' : 'Inactive'}
+                                    {product.isActive ? 'Hoạt động' : 'Không hoạt động'}
                                 </Tag>
                             </div>
 
@@ -771,7 +782,7 @@ const Products = () => {
                                 ))}
 
                                 <div className="flex justify-end items-center mb-2">
-                                    <Button type="dashed" onClick={() => add()}>
+                                    <Button type="dashed" onClick={() => add({ unit: 'Cây', inventory: 0 })}>
                                         + Thêm Variant
                                     </Button>
                                 </div>

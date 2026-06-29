@@ -20,12 +20,12 @@ const ImportPrintTemplate = React.forwardRef(({ data }, ref) => {
             {/* Header Phiếu */}
             <Row justify="space-between" align="middle">
                 <Col span={16}>
-                    <Title level={3}>PHIẾU NHẬP KHO</Title>
+                    <Text strong>Công ty TNHH Mắt Kính Thuận Thiên Phát</Text> <br />  
                     <Text strong>Mã phiếu: {data.importCode}</Text> <br />
                     <Text>Ngày nhập: {new Date(data.createdAt).toLocaleString('vi-VN')}</Text>
                 </Col>
                 <Col span={8} style={{ textAlign: 'right' }}>
-                    <Text strong>Công ty TNHH Mắt Kính Thuận Thiên Phát</Text> <br />
+                    <Title level={3}>PHIẾU NHẬP KHO</Title>
                     <Text italic>Dữ liệu quản trị kho</Text>
                 </Col>
             </Row>
@@ -45,6 +45,7 @@ const ImportPrintTemplate = React.forwardRef(({ data }, ref) => {
 
             {/* Bảng hàng hóa */}
             <Table
+                className="import-print-table"
                 dataSource={data.items}
                 columns={columns}
                 pagination={false}

@@ -14,7 +14,7 @@ const AdminLayout = () => {
   const [collapsed, setCollapsed] = useState(isMobile);
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout style={{ minHeight: '100vh', position: 'relative' }}>
       
       {/* SIDEBAR */}
       <AdminSidebar

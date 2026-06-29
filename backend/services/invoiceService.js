@@ -100,10 +100,10 @@ exports.createInvoice = async (payload) => {
       staffName: payload.staffName,
       items: itemsWithQr,
       totalQuantity: payload.totalQuantity,
-      subTotal: payload.subTotal,
-      totalDiscount: payload.totalDiscount || 0,
-      totalAmount: payload.totalAmount,
-      paymentMethod: payload.paymentMethod || 'CASH',
+      subTotal: payload.isSample ? undefined : payload.subTotal,
+      totalDiscount: payload.isSample ? undefined : (payload.totalDiscount || 0),
+      totalAmount: payload.isSample ? undefined : payload.totalAmount,
+      paymentMethod: payload.isSample ? undefined : (payload.paymentMethod || 'CASH'),
       note: payload.note || '',
       isSample: payload.isSample === true
     });

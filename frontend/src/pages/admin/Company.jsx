@@ -235,7 +235,6 @@ const Company = () => {
                 okText="Xác nhận & Lưu"
                 cancelText="Hủy bỏ"
                 width={isMobile ? "100%" : 550}
-                okButtonProps={{ className: "bg-[#1D6F42] border-[#1D6F42] hover:!bg-[#278950]" }}
                 style={isMobile ? { top: 0, paddingBottom: 0 } : {}}
                 maskClosable={false}
             >

@@ -13,7 +13,7 @@ import {
   BarcodeOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Typography } from 'antd';
+import { Typography, Grid } from 'antd';
 
 const { Text } = Typography;
 const { Sider } = Layout;
@@ -21,6 +21,9 @@ const { Sider } = Layout;
 const AdminSidebar = ({ collapsed, setCollapsed }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { useBreakpoint } = Grid;
+  const screens = useBreakpoint();
+  const isMobile = !screens.lg;
 
   const handleMenuClick = ({ key }) => {
     navigate(key);
@@ -42,7 +45,10 @@ const AdminSidebar = ({ collapsed, setCollapsed }) => {
       trigger={null} // dùng trigger ở Header
       style={{
         background: '#fff',
-        boxShadow: '2px 0 8px rgba(0,0,0,0.05)'
+        boxShadow: '2px 0 8px rgba(0,0,0,0.05)',
+        position: isMobile ? 'absolute' : 'relative',
+        zIndex: 1000,
+        height: '100vh'
       }}
     >
       {/* Logo / Title */}

@@ -42,11 +42,11 @@ const InvoiceSchema = new mongoose.Schema({
   items: [InvoiceItemSchema],
 
   totalQuantity: { type: Number, required: true },
-  subTotal: { type: Number, required: true },
+  subTotal: { type: Number },
   totalDiscount: { type: Number, default: 0 },
-  totalAmount: { type: Number, required: true },
+  totalAmount: { type: Number },
 
-  paymentMethod: { type: String, enum: ['CASH', 'TRANSFER', 'DEBT'], default: 'CASH' },
+  paymentMethod: { type: String, enum: ['CASH', 'TRANSFER', 'DEBT', 'NONE'] },
   note: { type: String },
   isActive: { type: Boolean, default: true },
   isSample: { type: Boolean, default: false }

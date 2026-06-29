@@ -13,7 +13,7 @@ const PrintTemplate = React.forwardRef(({ data }, ref) => {
     const docSoToChu = (number) => {
         if (!number || number === 0) return "Không đồng";
 
-        const dv = ["", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
+        const dv = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
         const hang = ["", "nghìn", "triệu", "tỷ"];
 
         const docHangTram = (num, dayDu) => {
@@ -101,7 +101,7 @@ const PrintTemplate = React.forwardRef(({ data }, ref) => {
             <div style={{ marginBottom: '20px', marginTop: 0 }}>
                 <div>
                     <p>Địa chỉ: {data.customerAddress}</p>
-                    <p>MST: {data.customerTaxCode}</p>
+                    {data.customerTaxCode && <p>MST: {data.customerTaxCode}</p>}
                 </div>
             </div>
 
@@ -180,12 +180,12 @@ const PrintTemplate = React.forwardRef(({ data }, ref) => {
 
                 <div>
                     <p><b>Người giao hàng</b></p>
-                    <p style={{ marginTop: '5px' }}>(Ký, họ tên)</p>
+                    <p style={{ marginTop: '2px' }}>(Ký, họ tên)</p>
                 </div>
 
                 <div>
                     <p><b>Người nhận hàng</b></p>
-                    <p style={{ marginTop: '5px' }}>(Ký, họ tên)</p>
+                    <p style={{ marginTop: '2px' }}>(Ký, họ tên)</p>
                 </div>
 
 

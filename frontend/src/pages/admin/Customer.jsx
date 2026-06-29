@@ -251,7 +251,7 @@ const Customer = () => {
       title: 'Trạng thái',
       dataIndex: 'isActive',
       render: (val) =>
-        val ? <Tag color="green">Active</Tag> : <Tag color="red">Inactive</Tag>
+        val ? <Tag color="green">Hoạt động</Tag> : <Tag color="red">Không hoạt động</Tag>
     },
     {
       title: 'Hành động',
@@ -369,7 +369,7 @@ const Customer = () => {
                 </div>
 
                 <Tag color={customer.isActive ? 'green' : 'red'}>
-                  {customer.isActive ? 'Active' : 'Inactive'}
+                  {customer.isActive ? 'Hoạt động' : 'Không hoạt động'}
                 </Tag>
               </div>
 

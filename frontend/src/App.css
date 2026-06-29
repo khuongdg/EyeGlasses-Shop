@@ -1,7 +1,63 @@
 @layer theme, base, antd, components, utilities;
 @import "tailwindcss";
 
+@font-face {
+    font-family: 'SVN-Outfit';
+    src: url('/fontText/SVN-Outfit-Variable.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+body, button, input, select, textarea, 
+.ant-btn, .ant-input, .ant-select, .ant-menu, .ant-typography, 
+.ant-modal, .ant-form, .ant-table, .ant-card, .ant-statistic, .ant-tag, .ant-select-dropdown {
+    font-family: 'SVN-Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+}
+
+/* Nâng cỡ chữ cơ bản lên 16px cho toàn bộ trang web và các component chính */
+html, body, button, input, select, textarea,
+.ant-btn, .ant-input, .ant-select, .ant-select-dropdown, .ant-menu-item, 
+.ant-menu-submenu-title, .ant-form-item, .ant-table-cell, .ant-modal-content, 
+.ant-card-body, .ant-tag, .ant-input-number {
+    font-size: 16px !important;
+}
+
+/* Mục sidebar menu được chọn sẽ đổi thành semibold (font-weight: 600) */
+.ant-menu-item-selected, 
+.ant-menu-item-selected .ant-menu-title-content,
+.ant-menu-item-selected .anticon {
+    font-weight: 600 !important;
+}
 
 .ant-input-number {
     width: 100%;
+}
+
+/* Cấu hình tối ưu khi in phiếu xuất/nhập kho */
+@media print {
+    /* Đặt lề trang giấy để tránh dính sát mép trên/dưới ở trang 2 trở đi */
+    @page {
+        margin: 5mm 5mm 5mm 5mm !important;
+    }
+
+    /* Ngăn chặn hàng tổng cộng (tfoot) lặp lại ở cuối mỗi trang khi bảng dài */
+    tfoot {
+        display: table-row-group !important;
+    }
+
+    /* Đổi màu viền bảng Ant Design thành màu đen đặc giống phiếu xuất kho */
+    .import-print-table,
+    .import-print-table .ant-table,
+    .import-print-table .ant-table-container,
+    .import-print-table .ant-table-content,
+    .import-print-table table,
+    .import-print-table th,
+    .import-print-table td,
+    .import-print-table .ant-table-summary,
+    .import-print-table .ant-table-summary tr th,
+    .import-print-table .ant-table-summary tr td {
+        border-color: #000000 !important;
+        color: #000000 !important;
+    }
 }

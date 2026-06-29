@@ -26,6 +26,7 @@ const ImportGoods = () => {
     const [staffs, setStaffs] = useState([]);
     const [loading, setLoading] = useState(false);
     const [openModal, setOpenModal] = useState(false);
+    const [submitLoading, setSubmitLoading] = useState(false);
     const [form] = Form.useForm();
 
     const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
@@ -170,6 +171,7 @@ const ImportGoods = () => {
     /* ================= HÀNH ĐỘNG ================= */
     const handleCreateImport = async () => {
         try {
+            setSubmitLoading(true);
             const values = await form.validateFields();
             await createImport(values);
             message.success('Nhập kho thành công, tồn kho đã tăng');
@@ -177,7 +179,10 @@ const ImportGoods = () => {
             form.resetFields();
             fetchImports(1);
         } catch (err) {
+            if (err.errorFields) return; // Lỗi validate form
             message.error(err.response?.data?.message || 'Lỗi tạo phiếu nhập');
+        } finally {
+            setSubmitLoading(false);
         }
     };
 
@@ -294,6 +299,7 @@ const ImportGoods = () => {
                 open={openModal}
                 onCancel={() => setOpenModal(false)}
                 onOk={handleCreateImport}
+                confirmLoading={submitLoading}
                 width={isMobile ? '100%' : 1100}
                 style={isMobile ? { top: 0 } : {}}
                 maskClosable={false}
@@ -394,7 +400,7 @@ const ImportGoods = () => {
                                                         active:!bg-[#155231] 
                                                         transition-all duration-200"
                                             >
-                                                Automatic Data By Excel
+                                                Import by Excel
                                             </Button>
                                         </Upload>
                                     </Col>

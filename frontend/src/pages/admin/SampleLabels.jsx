@@ -39,6 +39,7 @@ const SampleLabels = () => {
     const [loading, setLoading] = useState(false);
     const [variantLoading, setVariantLoading] = useState(false);
     const [openModal, setOpenModal] = useState(false);
+    const [submitLoading, setSubmitLoading] = useState(false);
 
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [openDetail, setOpenDetail] = useState(false);
@@ -70,6 +71,7 @@ const SampleLabels = () => {
 
     const { useBreakpoint } = Grid;
     const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     /* ================= FETCH DATA ================= */
     const fetchInvoices = async (params = queryParams) => {
@@ -213,6 +215,7 @@ const SampleLabels = () => {
 
     const handleCreate = async () => {
         try {
+            setSubmitLoading(true);
             const values = await form.validateFields();
             const totalQty = values.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
             const subTotal = values.items.reduce((sum, item) => sum + (Number(item.quantity || 0) * Number(item.price || 0)), 0);
@@ -220,11 +223,8 @@ const SampleLabels = () => {
             const payload = {
                 ...values,
                 isSample: true, // Biến thể in mẫu
-                paymentMethod: 'CASH', // Default giá trị bắt buộc trên DB
                 totalDiscount: 0,
                 totalQuantity: totalQty,
-                subTotal: subTotal,
-                totalAmount: subTotal,
                 items: values.items.map((it) => ({
                     ...it,
                     discountPercent: 0,
@@ -240,6 +240,8 @@ const SampleLabels = () => {
         } catch (err) {
             if (err.errorFields) return; // Lỗi validate form
             message.error(err.response?.data?.message || 'Tạo phiếu in tem mẫu thất bại');
+        } finally {
+            setSubmitLoading(false);
         }
     };
 
@@ -354,12 +356,12 @@ const SampleLabels = () => {
             {/* HEADER */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b pb-4">
                 <div>
-                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <h2 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
                         <BarcodeOutlined/> In tem mẫu sản phẩm
                     </h2>
                 </div>
 
-                <Space>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     <Button
                         icon={<PlusOutlined />}
                         onClick={handleOpenPrintAllModal}
@@ -377,8 +379,10 @@ const SampleLabels = () => {
                             e.currentTarget.style.backgroundColor = '#fff7e6';
                             e.currentTarget.style.borderColor = '#ffd591';
                         }}
+                        className="w-full sm:w-auto"
+                        size={isMobile ? 'small' : 'middle'}
                     >
-                        Tạo phiếu in tất cả
+                        In tem tất cả
                     </Button>
                     <Button
                         type="primary"
@@ -388,10 +392,12 @@ const SampleLabels = () => {
                             form.setFieldsValue({ items: [{}] });
                             setOpenModal(true);
                         }}
+                        className="w-full sm:w-auto"
+                        size={isMobile ? 'small' : 'middle'}
                     >
-                        Tạo phiếu in tem mẫu
+                        In tem tuỳ chọn
                     </Button>
-                </Space>
+                </div>
             </div>
 
             {/* FILTER BAR */}
@@ -405,6 +411,7 @@ const SampleLabels = () => {
                             onChange={(e) => setQueryParams({ ...queryParams, keyword: e.target.value })}
                             onPressEnter={handleSearch}
                             allowClear
+                            size={isMobile ? 'small' : 'middle'}
                         />
                     </Col>
 
@@ -420,39 +427,143 @@ const SampleLabels = () => {
                                     dateTo: dates ? dates[1] : null
                                 });
                             }}
+                            size={isMobile ? 'small' : 'middle'}
                         />
                     </Col>
 
                     <Col xs={24} md={6}>
-                        <div className="flex gap-2">
-                            <Button type="primary" onClick={handleSearch}>Lọc dữ liệu</Button>
-                            <Button onClick={handleReset}>Reset</Button>
+                        <div className="flex gap-2 w-full">
+                            <Button type="primary" onClick={handleSearch} className="w-full" size={isMobile ? 'small' : 'middle'}>Lọc dữ liệu</Button>
+                            <Button onClick={handleReset} className="w-full" size={isMobile ? 'small' : 'middle'}>Reset</Button>
                         </div>
                     </Col>
                 </Row>
             </div>
 
             {/* TABLE LIST */}
-            <Table
-                rowKey="_id"
-                columns={columns}
-                dataSource={invoices}
-                loading={loading}
-                pagination={{
-                    current: pagination.current,
-                    pageSize: pagination.pageSize,
-                    total: pagination.total,
-                    showSizeChanger: true
-                }}
-                onChange={handleTableChange}
-                onRow={(record) => ({
-                    onClick: () => {
-                        setViewingInvoice(record);
-                        setOpenDetail(true);
-                    },
-                    style: { cursor: 'pointer' }
-                })}
-            />
+            {isMobile ? (
+                <div className="space-y-3">
+                    {invoices.map((invoice) => (
+                        <div
+                            key={invoice._id}
+                            className="border rounded-xl p-4 shadow-sm bg-white cursor-pointer"
+                            onClick={() => {
+                                setViewingInvoice(invoice);
+                                setOpenDetail(true);
+                            }}
+                        >
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <div className="font-semibold text-base text-blue-600">
+                                        {invoice.invoiceCode}
+                                    </div>
+                                    <div className="text-sm text-gray-600 mt-1">
+                                        NV lập: {invoice.staffId?.name || invoice.staffName || 'N/A'}
+                                    </div>
+                                </div>
+                                <Tag color={invoice.isActive ? 'green' : 'red'}>
+                                    {invoice.isActive ? 'Hoạt động' : 'Đã hủy'}
+                                </Tag>
+                            </div>
+
+                            <div className="mt-3 space-y-1 text-sm">
+                                <div>
+                                    <span className="text-gray-500">Ngày lập:</span>{' '}
+                                    <strong>
+                                        {new Date(invoice.createdAt).toLocaleString('vi-VN')}
+                                    </strong>
+                                </div>
+                                <div>
+                                    <span className="text-gray-500">Tổng số tem:</span>{' '}
+                                    <strong className="text-blue-600">
+                                        {invoice.totalQuantity || 0} tem
+                                    </strong>
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div
+                                className="mt-4 flex gap-2 flex-wrap"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <Button
+                                    size="small"
+                                    icon={<PrinterOutlined />}
+                                    onClick={() => triggerPrint(invoice)}
+                                >
+                                    In tem
+                                </Button>
+
+                                {invoice.isActive && (
+                                    <Popconfirm
+                                        title="Xóa vĩnh viễn phiếu in tem mẫu?"
+                                        description="Phiếu này sẽ bị xóa hoàn toàn khỏi hệ thống và không thể hoàn tác."
+                                        onConfirm={() => handleDelete(invoice._id)}
+                                        okButtonProps={{ danger: true }}
+                                        onCancel={(e) => e.stopPropagation()}
+                                    >
+                                        <Button danger size="small" onClick={(e) => e.stopPropagation()}>
+                                            Xoá
+                                        </Button>
+                                    </Popconfirm>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Mobile Pagination */}
+                    <div className="flex justify-center gap-3 pt-2">
+                        <Button
+                            disabled={pagination.current === 1}
+                            onClick={() =>
+                                handleTableChange({
+                                    current: pagination.current - 1,
+                                    pageSize: pagination.pageSize
+                                })
+                            }
+                        >
+                            Trước
+                        </Button>
+                        <span className="self-center text-sm">
+                            Trang {pagination.current} / {Math.ceil(pagination.total / pagination.pageSize) || 1}
+                        </span>
+                        <Button
+                            disabled={
+                                pagination.current * pagination.pageSize >= pagination.total
+                            }
+                            onClick={() =>
+                                handleTableChange({
+                                    current: pagination.current + 1,
+                                    pageSize: pagination.pageSize
+                                })
+                            }
+                        >
+                            Sau
+                        </Button>
+                    </div>
+                </div>
+            ) : (
+                <Table
+                    rowKey="_id"
+                    columns={columns}
+                    dataSource={invoices}
+                    loading={loading}
+                    pagination={{
+                        current: pagination.current,
+                        pageSize: pagination.pageSize,
+                        total: pagination.total,
+                        showSizeChanger: true
+                    }}
+                    onChange={handleTableChange}
+                    onRow={(record) => ({
+                        onClick: () => {
+                            setViewingInvoice(record);
+                            setOpenDetail(true);
+                        },
+                        style: { cursor: 'pointer' }
+                    })}
+                />
+            )}
 
             {/* HIDDEN PRINT COMPONENT */}
             <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
@@ -521,6 +632,7 @@ const SampleLabels = () => {
                 title="Tạo phiếu in tem mẫu"
                 open={openModal}
                 onOk={handleCreate}
+                confirmLoading={submitLoading}
                 onCancel={() => setOpenModal(false)}
                 width="100%"
                 style={{ maxWidth: 1000, top: 20 }}

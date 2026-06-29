@@ -64,6 +64,10 @@ const ProductDetail = () => {
     const handleAddVariant = async () => {
         try {
             const values = await form.validateFields();
+            
+            // Tự động chuẩn hóa viết hoa cho màu sắc và SKU khi lưu
+            values.colorCode = (values.colorCode || '').trim().toUpperCase();
+            values.sku = `${product.name}_${values.colorCode}`;
 
             await createVariant(slug, values);
 
@@ -74,7 +78,7 @@ const ProductDetail = () => {
             fetchDetail(); // reload variants
         } catch (err) {
             console.error(err);
-            message.error('Thêm biến thể thất bại');
+            message.error(err.response?.data?.message || 'Thêm biến thể thất bại');
         }
     };
 
@@ -87,6 +91,14 @@ const ProductDetail = () => {
     const handleUpdateVariant = async () => {
         try {
             const values = await form.validateFields();
+            
+            // Tự động chuẩn hóa viết hoa khi cập nhật
+            if (values.colorCode) {
+                values.colorCode = values.colorCode.trim().toUpperCase();
+            }
+            if (values.sku) {
+                values.sku = values.sku.trim().toUpperCase();
+            }
 
             await updateVariant(slug, editingVariant._id, values);
 
@@ -95,7 +107,8 @@ const ProductDetail = () => {
             setEditingVariant(null);
             fetchDetail();
         } catch (err) {
-            message.error('Cập nhật thất bại');
+            console.error(err);
+            message.error(err.response?.data?.message || 'Cập nhật thất bại');
         }
     };
 
@@ -127,7 +140,7 @@ const ProductDetail = () => {
             title: 'Trạng thái',
             dataIndex: 'isActive',
             render: (isActive) =>
-                isActive ? <Tag color="green">Active</Tag> : <Tag color="red">Inactive</Tag>
+                isActive ? <Tag color="green">Hoạt động</Tag> : <Tag color="red">Không hoạt động</Tag>
         },
         {
             title: 'Hành động',
@@ -189,7 +202,16 @@ const ProductDetail = () => {
 
                         <Button
                             type="primary"
-                            onClick={() => setOpen(true)}
+                            onClick={() => {
+                                form.setFieldsValue({
+                                    unit: 'Cây',
+                                    inventory: 0,
+                                    sku: '',
+                                    colorCode: '',
+                                    price: undefined
+                                });
+                                setOpen(true);
+                            }}
                             className="w-full sm:w-auto"
                         >
                             + Thêm biến thể
@@ -207,8 +229,8 @@ const ProductDetail = () => {
                     <p>
                         <b>Trạng thái:</b>{' '}
                         {product.isActive
-                            ? <Tag color="green">Active</Tag>
-                            : <Tag color="red">Inactive</Tag>}
+                            ? <Tag color="green">Hoạt động</Tag>
+                            : <Tag color="red">Không hoạt động</Tag>}
                     </p>
                 </div>
 
@@ -236,7 +258,7 @@ const ProductDetail = () => {
                                     </div>
 
                                     <Tag color={variant.isActive ? 'green' : 'red'}>
-                                        {variant.isActive ? 'Active' : 'Inactive'}
+                                        {variant.isActive ? 'Hoạt động' : 'Không hoạt động'}
                                     </Tag>
                                 </div>
 
@@ -287,20 +309,32 @@ const ProductDetail = () => {
                 onCancel={() => setOpen(false)}
                 onOk={handleAddVariant}
                 okText="Thêm"
+                cancelText="Huỷ"
                 width="90%"
                 style={{ maxWidth: 600 }}
             >
-                <Form form={form} layout="vertical">
+                <Form 
+                    form={form} 
+                    layout="vertical"
+                    onValuesChange={(changedValues) => {
+                        if ('colorCode' in changedValues) {
+                            const color = (changedValues.colorCode || '').trim().toUpperCase();
+                            form.setFieldsValue({ 
+                                sku: color ? `${product.name}_${color}` : '' 
+                            });
+                        }
+                    }}
+                >
                     <Form.Item
                         label="SKU"
                         name="sku"
                         rules={[{ required: true, message: 'Nhập SKU' }]}
                     >
-                        <Input />
+                        <Input disabled placeholder="Tự động sinh khi nhập Màu" />
                     </Form.Item>
 
                     <Form.Item label="Màu" name="colorCode">
-                        <Input />
+                        <Input placeholder="Ví dụ: C1, C3, C22" />
                     </Form.Item>
 
                     <Form.Item label="Đơn vị" name="unit">
@@ -312,7 +346,13 @@ const ProductDetail = () => {
                         name="price"
                         rules={[{ required: true, message: 'Nhập giá' }]}
                     >
-                        <InputNumber style={{ width: '100%' }} />
+                        <InputNumber
+                            style={{ width: '100%' }}
+                            min={0}
+                            formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            parser={v => v.replace(/\$\s?|(,*)/g, '')}
+                            addonAfter="₫"
+                        />
                     </Form.Item>
 
                     <Form.Item label="Số lượng" name="inventory">
@@ -327,12 +367,13 @@ const ProductDetail = () => {
                 onCancel={() => setEditOpen(false)}
                 onOk={handleUpdateVariant}
                 okText="Lưu"
+                cancelText="Huỷ"
                 width="90%"
                 style={{ maxWidth: 600 }}
             >
                 <Form form={form} layout="vertical">
                     <Form.Item label="SKU" name="sku">
-                        <Input />
+                        <Input disabled />
                     </Form.Item>
 
                     <Form.Item label="Màu" name="colorCode">
@@ -344,7 +385,13 @@ const ProductDetail = () => {
                     </Form.Item>
 
                     <Form.Item label="Giá" name="price">
-                        <InputNumber style={{ width: '100%' }} />
+                        <InputNumber
+                            style={{ width: '100%' }}
+                            min={0}
+                            formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            parser={v => v.replace(/\$\s?|(,*)/g, '')}
+                            addonAfter="₫"
+                        />
                     </Form.Item>
 
                     <Form.Item label="Số lượng" name="inventory">

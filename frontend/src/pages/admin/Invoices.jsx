@@ -42,6 +42,7 @@ const Invoices = () => {
     const [loading, setLoading] = useState(false);
     const [variantLoading, setVariantLoading] = useState(false);
     const [openModal, setOpenModal] = useState(false);
+    const [submitLoading, setSubmitLoading] = useState(false);
 
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const componentRef = useRef();
@@ -216,6 +217,7 @@ const Invoices = () => {
     /* ================= CREATE ================= */
     const handleCreate = async () => {
         try {
+            setSubmitLoading(true);
             const values = await form.validateFields();
             await createInvoice(values);
 
@@ -225,7 +227,10 @@ const Invoices = () => {
             fetchInvoices();
             fetchVariants();
         } catch (err) {
+            if (err.errorFields) return; // Lỗi validate form
             message.error(err.response?.data?.message || 'Tạo phiếu thất bại');
+        } finally {
+            setSubmitLoading(false);
         }
     };
 
@@ -309,38 +314,17 @@ const Invoices = () => {
             title: 'Trạng thái',
             dataIndex: 'isActive',
             filters: [
-                { text: 'Active', value: true },
-                { text: 'Inactive', value: false },
+                { text: 'Hoạt động', value: true },
+                { text: 'Không hoạt động', value: false },
             ],
             onFilter: (value, record) => record.isActive === value,
             render: (v) =>
-                v ? <Tag color="green">Active</Tag> : <Tag color="red">Inactive</Tag>
+                v ? <Tag color="green">Hoạt động</Tag> : <Tag color="red">Không hoạt động</Tag>
         },
         {
             title: 'Hành động',
             render: (_, record) => (
                 <Space size="small">
-                    {record.isActive && (
-                        <Popconfirm
-                            title="Xác nhận hủy hóa đơn?"
-                            description="Hành động này sẽ không thể hoàn tác!"
-                            onConfirm={(e) => {
-                                // e.stopPropagation() được gọi tự động nếu bạn đặt ở đây hoặc dùng trong handle
-                                handleCancelInvoice(record._id);
-                            }}
-                            onCancel={(e) => e.stopPropagation()}
-                            okButtonProps={{ danger: true }}
-                        >
-                            <Button
-                                danger
-                                size="small"
-                                onClick={(e) => e.stopPropagation()} // Ngăn chặn sự kiện click vào dòng (onRow)
-                            >
-                                Huỷ
-                            </Button>
-                        </Popconfirm>
-                    )}
-
                     {/* NÚT IN PHIẾU */}
                     <Button
                         icon={<PrinterOutlined />}
@@ -361,6 +345,27 @@ const Invoices = () => {
                             setIsLabelModalOpen(true);
                         }}
                     />
+
+                    {record.isActive && (
+                        <Popconfirm
+                            title="Xác nhận hủy hóa đơn?"
+                            description="Hành động này sẽ không thể hoàn tác!"
+                            onConfirm={(e) => {
+                                // e.stopPropagation() được gọi tự động nếu bạn đặt ở đây hoặc dùng trong handle
+                                handleCancelInvoice(record._id);
+                            }}
+                            onCancel={(e) => e.stopPropagation()}
+                            okButtonProps={{ danger: true }}
+                        >
+                            <Button
+                                danger
+                                size="small"
+                                onClick={(e) => e.stopPropagation()} // Ngăn chặn sự kiện click vào dòng (onRow)
+                            >
+                                Huỷ
+                            </Button>
+                        </Popconfirm>
+                    )}
                 </Space>
             )
         }
@@ -492,7 +497,7 @@ const Invoices = () => {
                                 </div>
 
                                 <Tag color={invoice.isActive ? 'green' : 'red'}>
-                                    {invoice.isActive ? 'Active' : 'Inactive'}
+                                    {invoice.isActive ? 'Hoạt động' : 'Không hoạt động'}
                                 </Tag>
                             </div>
 
@@ -627,6 +632,7 @@ const Invoices = () => {
                 title="Tạo phiếu xuất kho"
                 open={openModal}
                 onOk={handleCreate}
+                confirmLoading={submitLoading}
                 onCancel={() => setOpenModal(false)}
                 width="100%"
                 style={{ maxWidth: 1100, top: 20 }}
