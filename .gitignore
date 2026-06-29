@@ -14,3 +14,6 @@ build/
 
 # Logs
 npm-debug.log*
+
+# Database scripts / sensitive tools
+backend/scripts/seedUsers.js
