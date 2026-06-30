@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import {
     Table,
     Button,
@@ -14,9 +15,10 @@ import {
     Tag,
     Popconfirm,
     Grid,
-    Upload
+    Upload,
+    Dropdown
 } from 'antd';
-import { PlusOutlined, FileExcelOutlined, DownloadOutlined } from '@ant-design/icons';
+import { PlusOutlined, FileExcelOutlined, DownloadOutlined, BarChartOutlined, DownOutlined } from '@ant-design/icons';
 import debounce from 'lodash/debounce';
 
 import {
@@ -26,7 +28,8 @@ import {
     deleteProduct,
     restoreProduct,
     searchProducts,
-    aiBulkImport
+    aiBulkImport,
+    getAllVariants
 } from '../../services/productService';
 
 const Products = () => {
@@ -40,6 +43,7 @@ const Products = () => {
     const [searchKeyword, setSearchKeyword] = useState('');
 
     const [importLoading, setImportLoading] = useState(false);
+    const [exportLoading, setExportLoading] = useState(false);
 
     const [createForm] = Form.useForm();
     const [editForm] = Form.useForm();
@@ -221,6 +225,165 @@ const Products = () => {
         const buffer = await workbook.xlsx.writeBuffer();
         saveAs(new Blob([buffer]), 'Mau_Nhap_Kho_Sieu_Thi_Kinh.xlsx');
         message.success('Tải file mẫu kèm hướng dẫn thành công!');
+    };
+
+    const exportInventoryToExcel = async () => {
+        setExportLoading(true);
+        try {
+            // Lấy toàn bộ danh sách biến thể (sử dụng limit cao để quét hết)
+            const res = await getAllVariants({ limit: 100000 });
+            const variants = res.data.data || [];
+
+            if (variants.length === 0) {
+                message.warning('Không có dữ liệu hàng tồn kho để xuất!');
+                return;
+            }
+
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Thong_Ke_Ton_Kho');
+
+            // 1. Thiết lập độ rộng cột
+            worksheet.columns = [
+                { key: 'stt', width: 8 },
+                { key: 'sku', width: 22 },
+                { key: 'productName', width: 30 },
+                { key: 'brand', width: 20 },
+                { key: 'colorCode', width: 12 },
+                { key: 'unit', width: 12 },
+                { key: 'price', width: 18 },
+                { key: 'inventory', width: 18 },
+            ];
+
+            worksheet.spliceRows(1, 1);
+
+            // 2. Tiêu đề Báo cáo
+            const titleRow = worksheet.addRow(['BÁO CÁO THỐNG KÊ TỒN KHO SẢN PHẨM']);
+            worksheet.mergeCells('A1:H1');
+            titleRow.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FF1D6F42' } };
+            titleRow.alignment = { vertical: 'middle', horizontal: 'center' };
+            titleRow.height = 35;
+
+            const timeRow = worksheet.addRow([`Ngày xuất báo cáo: ${new Date().toLocaleString('vi-VN')}`]);
+            worksheet.mergeCells('A2:H2');
+            timeRow.font = { name: 'Arial', size: 10, italic: true };
+            timeRow.alignment = { vertical: 'middle', horizontal: 'center' };
+            timeRow.height = 20;
+
+            worksheet.addRow([]); // Dòng trống
+
+            // 3. Tiêu đề Bảng
+            const headers = [
+                'STT',
+                'Mã SKU',
+                'Tên sản phẩm',
+                'Thương hiệu',
+                'Màu sắc',
+                'Đơn vị',
+                'Giá bán (₫)',
+                'Số lượng tồn'
+            ];
+            const headerRow = worksheet.addRow(headers);
+            headerRow.height = 28;
+            headerRow.eachCell((cell) => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D6F42' } }; // Xanh Excel
+                cell.font = { name: 'Arial', bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+                    left: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+                    bottom: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+                    right: { style: 'thin', color: { argb: 'FFD3D3D3' } }
+                };
+            });
+
+            // 4. Đổ dữ liệu hàng tồn kho
+            let totalInventory = 0;
+            variants.forEach((v, index) => {
+                totalInventory += v.inventory || 0;
+                const row = worksheet.addRow([
+                    index + 1,
+                    v.sku,
+                    v.productId?.name || 'N/A',
+                    v.productId?.brand || 'N/A',
+                    v.colorCode || 'N/A',
+                    v.unit || 'Cây',
+                    v.price || 0,
+                    v.inventory || 0
+                ]);
+
+                row.height = 22;
+
+                // Căn giữa STT, Màu, Đvt
+                [1, 5, 6].forEach(colIdx => {
+                    row.getCell(colIdx).alignment = { horizontal: 'center', vertical: 'middle' };
+                });
+
+                // Căn trái Mã SKU, Tên, Thương hiệu
+                [2, 3, 4].forEach(colIdx => {
+                    row.getCell(colIdx).alignment = { horizontal: 'left', vertical: 'middle' };
+                });
+
+                // Giá bán (Định dạng số)
+                const priceCell = row.getCell(7);
+                priceCell.numFmt = '#,##0';
+                priceCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+                // Số lượng tồn (Định dạng số)
+                const invCell = row.getCell(8);
+                invCell.numFmt = '#,##0';
+                invCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+                // Đường viền ô
+                row.eachCell(cell => {
+                    cell.font = { name: 'Arial', size: 10 };
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+                        left: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+                        bottom: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+                        right: { style: 'thin', color: { argb: 'FFD3D3D3' } }
+                    };
+                });
+            });
+
+            // 5. Dòng Tổng cộng
+            const totalRow = worksheet.addRow([
+                'TỔNG CỘNG',
+                '', '', '', '', '', '',
+                totalInventory
+            ]);
+            worksheet.mergeCells(`A${totalRow.number}:G${totalRow.number}`);
+            totalRow.height = 26;
+
+            totalRow.getCell(1).font = { name: 'Arial', bold: true, size: 11 };
+            totalRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+            const totalInvCell = totalRow.getCell(8);
+            totalInvCell.font = { name: 'Arial', bold: true, size: 11, color: { argb: 'FFFF0000' } }; // Chữ đỏ làm nổi bật
+            totalInvCell.numFmt = '#,##0';
+            totalInvCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+            // Thẩm mỹ dòng tổng cộng
+            totalRow.eachCell(cell => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } }; // Nền xám nhạt
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FF999999' } },
+                    left: { style: 'thin', color: { argb: 'FF999999' } },
+                    bottom: { style: 'double', color: { argb: 'FF000000' } }, // Viền đôi ở dưới
+                    right: { style: 'thin', color: { argb: 'FF999999' } }
+                };
+            });
+
+            // 6. Lưu file
+            const buffer = await workbook.xlsx.writeBuffer();
+            const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            saveAs(new Blob([buffer]), `Bao_Cao_Ton_Kho_${dateStr}.xlsx`);
+            message.success('Xuất file thống kê tồn kho thành công!');
+        } catch (err) {
+            console.error('Export inventory error:', err);
+            message.error(err.response?.data?.message || 'Có lỗi xảy ra khi xuất file Excel');
+        } finally {
+            setExportLoading(false);
+        }
     };
 
     /* ================= FETCH ================= */
@@ -462,6 +625,42 @@ const Products = () => {
         }
     ];
 
+    const excelMenuItems = [
+        {
+            key: 'download_template',
+            label: <span style={{ fontWeight: 600 }}>Tải file mẫu Excel</span>,
+            icon: <DownloadOutlined />,
+            onClick: downloadTemplate
+        },
+        {
+            type: 'divider'
+        },
+        {
+            key: 'import_excel',
+            label: (
+                <Upload
+                    accept=".xlsx, .xls"
+                    showUploadList={false}
+                    beforeUpload={handleAIImport}
+                    disabled={importLoading}
+                    style={{ width: '100%' }}
+                >
+                    <div style={{ width: '100%', fontWeight: 600 }}>Import Excel kho hàng</div>
+                </Upload>
+            ),
+            icon: <FileExcelOutlined />,
+        },
+        {
+            type: 'divider'
+        },
+        {
+            key: 'export_report',
+            label: <span style={{ fontWeight: 600 }}>Báo cáo tồn kho (Excel)</span>,
+            icon: <BarChartOutlined />,
+            onClick: exportInventoryToExcel
+        }
+    ];
+
     return (
         <div className="space-y-4">
             {/* HEADER */}
@@ -474,32 +673,22 @@ const Products = () => {
                 />
 
                 <Space wrap>
-                    <Button
-                        icon={<DownloadOutlined />}
-                        onClick={downloadTemplate}
-                        className="text-gray-600 border-gray-300 hover:text-green-600 hover:border-green-600"
-                    >
-                        Tải file mẫu
-                    </Button>
-
-                    <Upload
-                        accept=".xlsx, .xls"
-                        showUploadList={false}
-                        beforeUpload={handleAIImport}
-                        disabled={importLoading}
+                    <Dropdown
+                        menu={{ items: excelMenuItems }}
+                        placement="bottomRight"
+                        trigger={['click']}
                     >
                         <Button
-                            icon={<FileExcelOutlined />}
-                            loading={importLoading}
+                            loading={importLoading || exportLoading}
                             className="text-white bg-[#1D6F42] border-[#1D6F42] 
                                         hover:!bg-[#278950] hover:!text-white hover:!border-[#278950] 
                                         focus:!bg-[#1D6F42] focus:!text-white focus:!border-[#1D6F42]
                                         active:!bg-[#155231] 
                                         transition-all duration-200"
                         >
-                            Import By Excel
+                            Thao tác Excel <DownOutlined />
                         </Button>
-                    </Upload>
+                    </Dropdown>
 
                     <Button
                         type="primary"

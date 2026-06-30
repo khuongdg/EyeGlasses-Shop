@@ -5,8 +5,11 @@ const Variant = require('../models/Variant');
 const Debt = require('../models/Debt');
 
 exports.getStats = async ({ startDate, endDate }) => {
+    const start = new Date(`${startDate}T00:00:00.000Z`);
+    const end = new Date(`${endDate}T23:59:59.999Z`);
+
     const query = {
-        createdAt: { $gte: new Date(startDate), $lte: new Date(endDate) },
+        createdAt: { $gte: start, $lte: end },
         isActive: true,
         isSample: { $ne: true } // Không tính doanh thu từ phiếu in tem mẫu
     };

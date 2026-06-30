@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
   Row, Col, Card, Statistic, DatePicker, Skeleton, Typography,
-  Space, Alert, List, Badge, Tag, Button, Modal, Table, Grid
+  Space, Alert, List, Badge, Tag, Button, Modal, Table, Grid, Select
 } from 'antd';
 import {
   ArrowUpOutlined, ArrowDownOutlined, ShoppingCartOutlined,
   DollarOutlined, FallOutlined, WarningOutlined
 } from '@ant-design/icons';
-import { Column, Pie } from '@ant-design/plots';
+import { Column, Pie, Line } from '@ant-design/plots';
 import dayjs from 'dayjs';
 import { getDashboardStats } from '../../services/dashboardService';
+import { getAllVariants } from '../../services/productService';
 
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
@@ -20,6 +21,9 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [dates, setDates] = useState([dayjs().startOf('month'), dayjs().endOf('month')]);
   const [openLowStockModal, setOpenLowStockModal] = useState(false);
+  const [allVariants, setAllVariants] = useState([]);
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [variantsLoading, setVariantsLoading] = useState(false);
   const screens = useBreakpoint();
   const isMobile = !screens.md;
 
@@ -39,9 +43,38 @@ const Dashboard = () => {
     }
   };
 
+  const fetchVariants = async () => {
+    setVariantsLoading(true);
+    try {
+      const res = await getAllVariants({ limit: 100000 });
+      const data = res.data.data || [];
+      setAllVariants(data);
+
+      // Lấy danh sách các mã hàng cha không trùng lặp
+      const uniqueNames = Array.from(
+        new Set(data.map((v) => v.productId?.name).filter(Boolean))
+      );
+
+      if (uniqueNames.length > 0) {
+        // Chọn ngẫu nhiên tối đa 10 mã hàng làm mặc định
+        const shuffled = [...uniqueNames].sort(() => 0.5 - Math.random());
+        const random10 = shuffled.slice(0, 10);
+        setSelectedProducts(random10);
+      }
+    } catch (error) {
+      console.error("Lỗi tải thông tin tồn kho:", error);
+    } finally {
+      setVariantsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchStats();
   }, [dates]);
+
+  useEffect(() => {
+    fetchVariants();
+  }, []);
 
   // Tính toán giới hạn trục Y để tránh bị tràn/cắt cột và nhãn số tiền
   const minVal = stats ? Math.min(0, stats.revenue || 0, stats.importCost || 0, stats.profit || 0) : -1000000;
@@ -50,7 +83,7 @@ const Dashboard = () => {
   const padMax = maxVal > 0 ? maxVal * 1.25 : 1000000;
 
   // Cấu hình biểu đồ doanh thu & vốn (Cập nhật chuẩn Ant Design Plots)
-  const columnConfig = {
+  const lineConfig = {
     data: stats ? [
       { type: 'Doanh thu', value: stats.revenue || 0 },
       { type: 'Tiền vốn', value: stats.importCost || 0 },
@@ -58,21 +91,13 @@ const Dashboard = () => {
     ] : [],
     xField: 'type',
     yField: 'value',
-    colorField: 'type',
-    style: {
-      radius: 8,
-      maxWidth: 60
+    point: {
+      size: 5,
+      shape: 'circle'
     },
     scale: {
       y: {
         domain: [padMin, padMax]
-      },
-      color: {
-        range: [
-          '#1890ff', // Doanh thu
-          '#ff7875', // Tiền vốn
-          (stats?.profit || 0) >= 0 ? '#73d13d' : '#f5222d' // Lợi nhuận (xanh lá nếu lãi, đỏ nếu lỗ)
-        ]
       }
     },
     label: {
@@ -81,12 +106,6 @@ const Dashboard = () => {
         fontWeight: 'bold',
         fill: '#595959',
         fontSize: 12
-      }
-    },
-    legend: {
-      color: {
-        position: 'bottom',
-        layout: { justifyContent: 'center' }
       }
     },
     tooltip: {
@@ -102,6 +121,48 @@ const Dashboard = () => {
     radius: 0.8,
     label: { text: 'value', position: 'outside' },
     legend: { color: { position: 'bottom', layout: { justifyContent: 'center' } } },
+  };
+
+  // Lọc ra danh sách các tên sản phẩm cha (mã hàng) không trùng lặp từ allVariants
+  const productOptions = Array.from(
+    new Set(allVariants.map((v) => v.productId?.name).filter(Boolean))
+  ).map((name) => ({ label: name, value: name }));
+
+  // Lọc dữ liệu biến thể theo mã hàng đã chọn
+  const variantInventoryData = allVariants
+    .filter((v) => selectedProducts.includes(v.productId?.name))
+    .map((v) => ({
+      sku: v.sku,
+      inventory: v.inventory || 0,
+      productName: v.productId?.name || 'N/A' // dùng làm nhóm màu
+    }))
+    .sort((a, b) => b.inventory - a.inventory); // sắp xếp tồn kho từ cao đến thấp
+
+  const variantColumnConfig = {
+    data: variantInventoryData,
+    xField: 'sku',
+    yField: 'inventory',
+    colorField: 'productName',
+    style: {
+      radius: 4
+    },
+    label: {
+      text: (d) => `${d.inventory.toLocaleString()}`,
+      style: {
+        fontWeight: 'bold',
+        fill: '#595959',
+        fontSize: 11
+      }
+    },
+    legend: {
+      color: {
+        position: 'bottom',
+        layout: { justifyContent: 'center' }
+      }
+    },
+    tooltip: {
+      items: [{ channel: 'y', valueFormatter: (v) => `${v.toLocaleString()} Cây` }]
+    }
   };
 
   return (
@@ -221,7 +282,7 @@ const Dashboard = () => {
         <Row gutter={[16, 16]}>
           <Col xs={24} lg={14}>
             <Card title="Phân tích Tài chính" bordered={false}>
-              <Column {...columnConfig} height={isMobile ? 250 : 350} />
+              <Line {...lineConfig} height={isMobile ? 250 : 350} />
             </Card>
           </Col>
 
@@ -231,7 +292,45 @@ const Dashboard = () => {
               bordered={false}
               extra={<ShoppingCartOutlined style={{ color: '#1677ff' }} />}
             >
-              <Pie {...pieConfig} height={isMobile ? 250 : 350} />
+              {stats?.topProducts?.length > 0 ? (
+                <Pie {...pieConfig} height={isMobile ? 250 : 350} />
+              ) : (
+                <div style={{ padding: '80px 0', textAlign: 'center', color: '#8c8c8c', height: isMobile ? 250 : 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text type="secondary">Không có dữ liệu bán hàng trong kỳ</Text>
+                </div>
+              )}
+            </Card>
+          </Col>
+        </Row>
+
+        <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+          <Col span={24}>
+            <Card
+              title="Thống kê tồn kho theo biến thể"
+              bordered={false}
+              extra={
+                <Select
+                  mode="multiple"
+                  allowClear
+                  style={{ width: isMobile ? '100%' : 400 }}
+                  placeholder="Chọn mã hàng (sản phẩm)..."
+                  options={productOptions}
+                  value={selectedProducts}
+                  onChange={(vals) => setSelectedProducts(vals)}
+                  loading={variantsLoading}
+                  maxTagCount="responsive"
+                />
+              }
+            >
+              {selectedProducts.length > 0 ? (
+                <Column {...variantColumnConfig} height={isMobile ? 250 : 350} />
+              ) : (
+                <div style={{ padding: '60px 0', textAlign: 'center', color: '#8c8c8c' }}>
+                  <Text type="secondary" style={{ fontSize: '15px' }}>
+                    Vui lòng chọn một hoặc nhiều mã hàng ở hộp chọn bên phải để hiển thị biểu đồ tồn kho.
+                  </Text>
+                </div>
+              )}
             </Card>
           </Col>
         </Row>

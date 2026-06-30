@@ -4,6 +4,10 @@ export const getProducts = (params) => {
   return axiosClient.get('/products', { params });
 };
 
+export const getAllVariants = (params) => {
+  return axiosClient.get('/products/variants', { params });
+};
+
 export const createProduct = (data) => {
   return axiosClient.post('/products/create', data);
 };
