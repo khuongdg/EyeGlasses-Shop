@@ -56,27 +56,30 @@ const Debts = () => {
             title: 'Mã phiếu',
             dataIndex: ['invoiceId', 'invoiceCode'],
             key: 'invoiceCode',
-            render: (text) => <b>{text}</b>
+            width: 160,
+            render: (text) => <b style={{ whiteSpace: 'nowrap' }}>{text}</b>
         },
         {
             title: 'Khách hàng',
             key: 'customer',
+            width: 250,
             render: (_, record) => (
-                <Space direction="vertical" size={0}>
+                <Space direction="vertical" size={0} style={{ whiteSpace: 'nowrap' }}>
                     <Text strong>{record.customerName}</Text>
-                    <Text type="secondary" size="small">{record.customerPhone}</Text>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>{record.customerPhone}</Text>
                 </Space>
             )
         },
         {
             title: 'Tổng nợ',
             dataIndex: 'totalAmount',
-            render: (val) => val.toLocaleString() + '₫'
+            width: 120,
+            render: (val) => <span style={{ whiteSpace: 'nowrap' }}>{val.toLocaleString()}₫</span>
         },
         {
             title: 'Tiến độ thanh toán',
             key: 'progress',
-            width: 250,
+            width: 200,
             render: (_, record) => {
                 const percent = Math.round((record.paidAmount / record.totalAmount) * 100);
                 return (
@@ -86,7 +89,7 @@ const Debts = () => {
                             size="small"
                             status={record.status === 'COMPLETED' ? 'success' : 'active'}
                         />
-                        <Text type="secondary" style={{ fontSize: '11px' }}>
+                        <Text type="secondary" style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>
                             Đã trả: {record.paidAmount.toLocaleString()}₫
                         </Text>
                     </div>
@@ -96,12 +99,14 @@ const Debts = () => {
         {
             title: 'Còn lại',
             dataIndex: 'remainingAmount',
-            render: (val) => <Text type="danger" strong>{val.toLocaleString()}₫</Text>,
-            sorter: (a, b) => a.remainingAmount - b.remainingAmount
+            width: 140,
+            sorter: (a, b) => a.remainingAmount - b.remainingAmount,
+            render: (val) => <span style={{ whiteSpace: 'nowrap' }}><Text type="danger" strong>{val.toLocaleString()}₫</Text></span>
         },
         {
             title: 'Trạng thái',
             dataIndex: 'status',
+            width: 120,
             render: (status) => {
                 const config = {
                     UNPAID: { color: 'red', text: 'Chưa trả' },
@@ -109,14 +114,15 @@ const Debts = () => {
                     COMPLETED: { color: 'green', text: 'Hoàn thành' },
                     CANCELLED: { color: 'default', text: 'Đã hủy phiếu' }
                 };
-                return <Tag color={config[status]?.color}>{config[status]?.text}</Tag>;
+                return <span style={{ whiteSpace: 'nowrap' }}><Tag color={config[status]?.color}>{config[status]?.text}</Tag></span>;
             }
         },
         {
             title: 'Hành động',
             key: 'action',
+            width: 180,
             render: (_, record) => (
-                <Space>
+                <Space style={{ whiteSpace: 'nowrap' }}>
                     {record.status !== 'COMPLETED' && (
                         <Button
                             type="primary"
@@ -151,11 +157,19 @@ const Debts = () => {
 
             <Card style={{ marginBottom: 20 }}>
                 <Row gutter={[16, 16]}>
-                    <Col xs={24} sm={12} md={8}>
+                    <Col xs={24} sm={12}>
                         <Card variant="borderless" style={{ background: '#fff7e6' }}>
                             <Text type="secondary">Tổng công nợ chưa thu</Text>
                             <Title level={4} style={{ margin: 0, color: '#fa8c16' }}>
                                 {(Array.isArray(debts) ? debts : []).reduce((sum, d) => sum + (d.remainingAmount || 0), 0).toLocaleString()}₫
+                            </Title>
+                        </Card>
+                    </Col>
+                    <Col xs={24} sm={12}>
+                        <Card variant="borderless" style={{ background: '#f6ffed' }}>
+                            <Text type="secondary">Tổng công nợ đã thu</Text>
+                            <Title level={4} style={{ margin: 0, color: '#52c41a' }}>
+                                {(Array.isArray(debts) ? debts : []).reduce((sum, d) => sum + (d.paidAmount || 0), 0).toLocaleString()}₫
                             </Title>
                         </Card>
                     </Col>
@@ -169,6 +183,7 @@ const Debts = () => {
                     rowKey="_id"
                     loading={loading}
                     pagination={{ pageSize: 10 }}
+                    scroll={{ x: 1100 }}
                 />
             ) : (
                 <div className="space-y-3">
