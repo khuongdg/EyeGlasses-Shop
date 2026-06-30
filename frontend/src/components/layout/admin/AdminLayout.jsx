@@ -22,6 +22,23 @@ const AdminLayout = () => {
         setCollapsed={setCollapsed}
       />
 
+      {/* Backdrop overlay on mobile when sidebar is open */}
+      {isMobile && !collapsed && (
+        <div
+          onClick={() => setCollapsed(true)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(129, 125, 125, 0.1)',
+            zIndex: 999, // Just below Sider (zIndex: 1000)
+            transition: 'opacity 0.2s',
+          }}
+        />
+      )}
+
       {/* MAIN LAYOUT */}
       <Layout>
         

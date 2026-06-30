@@ -36,9 +36,8 @@ html, body, button, input, select, textarea,
 
 /* Cấu hình tối ưu khi in phiếu xuất/nhập kho */
 @media print {
-    /* Đặt lề trang giấy để tránh dính sát mép trên/dưới ở trang 2 trở đi */
     @page {
-        margin: 5mm 5mm 5mm 5mm !important;
+        margin: 5mm 5mm 5mm 5mm;
     }
 
     /* Ngăn chặn hàng tổng cộng (tfoot) lặp lại ở cuối mỗi trang khi bảng dài */

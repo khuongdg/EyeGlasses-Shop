@@ -46,7 +46,9 @@ const AdminSidebar = ({ collapsed, setCollapsed }) => {
       style={{
         background: '#fff',
         boxShadow: '2px 0 8px rgba(0,0,0,0.05)',
-        position: isMobile ? 'absolute' : 'relative',
+        position: isMobile ? 'fixed' : 'relative',
+        top: 0,
+        left: 0,
         zIndex: 1000,
         height: '100vh'
       }}

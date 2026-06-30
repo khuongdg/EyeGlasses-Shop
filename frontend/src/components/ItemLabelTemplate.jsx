@@ -42,7 +42,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                 __html: `
                 @media print {
                     @page {
-                        margin: 0;
+                        margin: 0 !important;
                     }
                     body { margin: 0; padding: 0; }
 
