@@ -88,20 +88,16 @@ const PrintTemplate = React.forwardRef(({ data }, ref) => {
             <h1 style={{ display: 'flex', justifyContent: 'center', fontWeight: 'bold', fontSize: '24px', margin: 0, color: '#000' }}>PHIẾU XUẤT KHO</h1>
 
             {/* Thông tin khách hàng & nhân viên */}
-            <div style={{ display: 'flex', marginTop: '20px' }}>
+            <div style={{ display: 'flex', marginTop: '20px', marginBottom: '20px' }}>
                 <div style={{ flex: 2 }}>
                     <p>Khách hàng: {data.customerName}</p>
                     <p>Số điện thoại: {data.customerPhone}</p>
+                    <p>Địa chỉ: {data.customerAddress}</p>
+                    {data.customerTaxCode && <p>MST: {data.customerTaxCode}</p>}
                 </div>
                 <div style={{ flex: 1, paddingLeft: '50px' }}>
                     <p>Nhân viên: {data.staffName}</p>
                     <p>HT Thanh toán: {data.paymentMethod}</p>
-                </div>
-            </div>
-            <div style={{ marginBottom: '20px', marginTop: 0 }}>
-                <div>
-                    <p>Địa chỉ: {data.customerAddress}</p>
-                    {data.customerTaxCode && <p>MST: {data.customerTaxCode}</p>}
                 </div>
             </div>
 
@@ -195,7 +191,7 @@ const PrintTemplate = React.forwardRef(({ data }, ref) => {
                 __html: `
                 @media print {
                     @page {
-                        margin: 10mm 10mm 10mm 10mm !important;
+                        margin: 10mm 5mm 10mm 5mm !important;
                     }
                 }
                 `

@@ -79,7 +79,7 @@ const ImportPrintTemplate = React.forwardRef(({ data }, ref) => {
                 __html: `
                 @media print {
                     @page {
-                        margin: 10mm 10mm 10mm 10mm !important;
+                        margin: 10mm 5mm 10mm 5mm !important;
                     }
                 }
                 `
