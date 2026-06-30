@@ -190,6 +190,16 @@ const PrintTemplate = React.forwardRef(({ data }, ref) => {
 
 
             </div>
+            
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                @media print {
+                    @page {
+                        margin: 10mm 10mm 10mm 10mm !important;
+                    }
+                }
+                `
+            }} />
         </div>
     );
 });

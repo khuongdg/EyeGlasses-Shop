@@ -36,10 +36,6 @@ html, body, button, input, select, textarea,
 
 /* Cấu hình tối ưu khi in phiếu xuất/nhập kho */
 @media print {
-    @page {
-        margin: 5mm 5mm 5mm 5mm;
-    }
-
     /* Ngăn chặn hàng tổng cộng (tfoot) lặp lại ở cuối mỗi trang khi bảng dài */
     tfoot {
         display: table-row-group !important;

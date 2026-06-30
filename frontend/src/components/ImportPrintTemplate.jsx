@@ -74,6 +74,16 @@ const ImportPrintTemplate = React.forwardRef(({ data }, ref) => {
                     <Text type="secondary">(Ký, họ tên)</Text>
                 </Col>
             </Row>
+            
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                @media print {
+                    @page {
+                        margin: 10mm 10mm 10mm 10mm !important;
+                    }
+                }
+                `
+            }} />
         </div>
     );
 });
