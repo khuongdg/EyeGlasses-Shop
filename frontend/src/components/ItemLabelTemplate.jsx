@@ -115,7 +115,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     .store-title { font-size: 5pt; font-weight: bold; margin: 0; }
                     
                     .main-content { display: flex; align-items: center; justify-content: space-between; }
-                    .qr-code-img { width: 20mm; height: 20mm; object-fit: contain; image-rendering: pixelated; image-rendering: crisp-edges; position: relative; top: 1mm; }
+                    .qr-code-img { width: 21mm; height: 21mm; object-fit: contain; image-rendering: pixelated; image-rendering: crisp-edges; position: relative; top: 0.5mm; }
                     .price-info { text-align: right; flex-grow: 1; margin-top: 12mm;}
                     .sku-sub { font-size: 4pt; margin: 0; }
                     .print-price { font-size: 9pt; font-weight: bold; margin: 0; color: #000; }
