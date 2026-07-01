@@ -347,24 +347,18 @@ const Invoices = () => {
                     />
 
                     {record.isActive && (
-                        <Popconfirm
-                            title="Xác nhận hủy hóa đơn?"
-                            description="Hành động này sẽ không thể hoàn tác!"
-                            onConfirm={(e) => {
-                                // e.stopPropagation() được gọi tự động nếu bạn đặt ở đây hoặc dùng trong handle
-                                handleCancelInvoice(record._id);
-                            }}
-                            onCancel={(e) => e.stopPropagation()}
-                            okButtonProps={{ danger: true }}
-                        >
-                            <Button
-                                danger
-                                size="small"
-                                onClick={(e) => e.stopPropagation()} // Ngăn chặn sự kiện click vào dòng (onRow)
+                        <span onClick={(e) => e.stopPropagation()}>
+                            <Popconfirm
+                                title="Xác nhận hủy hóa đơn?"
+                                description="Hành động này sẽ không thể hoàn tác!"
+                                onConfirm={() => handleCancelInvoice(record._id)}
+                                okButtonProps={{ danger: true }}
                             >
-                                Huỷ
-                            </Button>
-                        </Popconfirm>
+                                <Button danger size="small">
+                                    Huỷ
+                                </Button>
+                            </Popconfirm>
+                        </span>
                     )}
                 </Space>
             )
@@ -527,13 +521,18 @@ const Invoices = () => {
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 {invoice.isActive && (
-                                    <Button
-                                        danger
-                                        size="small"
-                                        onClick={() => handleCancelInvoice(invoice._id)}
-                                    >
-                                        Huỷ
-                                    </Button>
+                                    <span onClick={(e) => e.stopPropagation()}>
+                                        <Popconfirm
+                                            title="Xác nhận hủy hóa đơn?"
+                                            description="Hành động này sẽ không thể hoàn tác!"
+                                            onConfirm={() => handleCancelInvoice(invoice._id)}
+                                            okButtonProps={{ danger: true }}
+                                        >
+                                            <Button danger size="small">
+                                                Huỷ
+                                            </Button>
+                                        </Popconfirm>
+                                    </span>
                                 )}
 
                                 <Button
