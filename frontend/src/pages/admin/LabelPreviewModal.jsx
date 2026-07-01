@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Table, InputNumber, Button, Typography } from 'antd';
+import { Modal, Table, InputNumber, Button, Typography, Checkbox } from 'antd';
 
 const { Text } = Typography;
 
 const LabelPreviewModal = ({ open, onClose, items, onPrint, companyInfo, customerName }) => {
     // State này chỉ lưu danh sách các mã hàng duy nhất để nhập giá
     const [groupItems, setGroupItems] = useState([]);
+    const [selectedSkus, setSelectedSkus] = useState([]);
 
     useEffect(() => {
         // Chỉ thực hiện logic khi Modal được mở (open === true)
@@ -18,12 +19,15 @@ const LabelPreviewModal = ({ open, onClose, items, onPrint, companyInfo, custome
             }));
 
             setGroupItems(initialGrouped);
+            // Mặc định chọn in tất cả mã hàng
+            setSelectedSkus(initialGrouped.map(it => it.sku));
         }
     }, [open, items]);
 
     // 2. Xóa sạch dữ liệu KHI ĐÓNG MODAL (Thay thế cho destroyOnClose)
     const handleAfterClose = () => {
         setGroupItems([]);
+        setSelectedSkus([]);
     };
 
     // Hàm xử lý khi nhấn nút In
@@ -32,13 +36,16 @@ const LabelPreviewModal = ({ open, onClose, items, onPrint, companyInfo, custome
 
         // Duyệt qua danh sách đã sửa giá
         groupItems.forEach(group => {
-            const qty = Number(group.quantity) || 0;
-            // Nhân bản số lượng tem thực tế cho mỗi mã hàng
-            for (let i = 0; i < qty; i++) {
-                finalLabels.push({
-                    ...group,
-                    tempId: `${group.sku}-${i}`
-                });
+            // Chỉ in những mặt hàng được tick chọn
+            if (selectedSkus.includes(group.sku)) {
+                const qty = Number(group.quantity) || 0;
+                // Nhân bản số lượng tem thực tế cho mỗi mã hàng
+                for (let i = 0; i < qty; i++) {
+                    finalLabels.push({
+                        ...group,
+                        tempId: `${group.sku}-${i}`
+                    });
+                }
             }
         });
 
@@ -80,6 +87,38 @@ const LabelPreviewModal = ({ open, onClose, items, onPrint, companyInfo, custome
                     addonAfter="₫"
                 />
             )
+        },
+        {
+            title: (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <Checkbox
+                        checked={selectedSkus.length === groupItems.length && groupItems.length > 0}
+                        indeterminate={selectedSkus.length > 0 && selectedSkus.length < groupItems.length}
+                        onChange={(e) => {
+                            if (e.target.checked) {
+                                setSelectedSkus(groupItems.map(it => it.sku));
+                            } else {
+                                setSelectedSkus([]);
+                            }
+                        }}
+                    />
+                </div>
+            ),
+            key: 'printSelect',
+            align: 'center',
+            width: 100,
+            render: (_, record) => (
+                <Checkbox
+                    checked={selectedSkus.includes(record.sku)}
+                    onChange={(e) => {
+                        if (e.target.checked) {
+                            setSelectedSkus(prev => [...prev, record.sku]);
+                        } else {
+                            setSelectedSkus(prev => prev.filter(k => k !== record.sku));
+                        }
+                    }}
+                />
+            )
         }
     ];
 
@@ -89,22 +128,22 @@ const LabelPreviewModal = ({ open, onClose, items, onPrint, companyInfo, custome
             open={open}
             onCancel={onClose}
             afterClose={handleAfterClose}
-            width={700}
+            width={800}
             footer={[
                 <Button key="cancel" onClick={onClose}>Hủy bỏ</Button>,
                 <Button
                     key="print"
                     type="primary"
                     onClick={handlePreparePrint}
+                    disabled={selectedSkus.length === 0}
                 >
-                    Xác nhận in ({groupItems.reduce((sum, item) => sum + item.quantity, 0)} tem)
+                    Xác nhận in ({groupItems.filter(item => selectedSkus.includes(item.sku)).reduce((sum, item) => sum + item.quantity, 0)} tem)
                 </Button>
             ]}
         >
             <div style={{ marginBottom: 16 }}>
                 <Text type="secondary">
-                    Hệ thống tự động nhóm theo mã hàng. Bạn chỉ cần nhập giá 1 lần cho mỗi mã,
-                    máy sẽ in đủ số lượng tem tương ứng với phiếu xuất kho.
+                    Hệ thống tự động nhóm theo mã hàng. Bạn có thể tick chọn in tất cả hoặc chọn in các tem cần thiết, nhập giá in tương ứng cho từng mã hàng.
                 </Text>
             </div>
             <Table
