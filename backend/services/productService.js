@@ -152,17 +152,25 @@ exports.deleteProduct = async (productId) => {
         throw new Error('Product not found');
     }
 
-    // Soft delete product
-    product.isActive = false;
-    await product.save();
+    if (product.isActive) {
+        // Soft delete product
+        product.isActive = false;
+        await product.save();
 
-    // Soft delete toàn bộ variant thuộc product
-    await Variant.updateMany(
-        { productId },
-        { $set: { isActive: false } }
-    );
+        // Soft delete toàn bộ variant thuộc product
+        await Variant.updateMany(
+            { productId },
+            { $set: { isActive: false } }
+        );
 
-    return product;
+        return product;
+    } else {
+        // Hard delete product khỏi database vĩnh viễn
+        await Product.deleteOne({ _id: productId });
+        // Hard delete toàn bộ variants thuộc product vĩnh viễn
+        await Variant.deleteMany({ productId });
+        return { message: 'Product and variants deleted permanently' };
+    }
 };
 
 // RESTORE /api/products/:productId/restore

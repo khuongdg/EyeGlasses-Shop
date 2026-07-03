@@ -34,8 +34,14 @@ exports.getAllVariants = async (query = {}) => {
 };
 
 exports.createVariant = async (slug, payload) => {
-  // 1. Tìm sản phẩm cha bằng slug để lấy _id và tên
-  const product = await Product.findOne({ slug }).select('_id name');
+  // 1. Tìm sản phẩm cha bằng ID hoặc slug để lấy _id và tên
+  let product;
+  if (mongoose.Types.ObjectId.isValid(slug)) {
+    product = await Product.findById(slug).select('_id name');
+  } else {
+    product = await Product.findOne({ slug }).select('_id name');
+  }
+
   if (!product) {
     throw new Error('Không tìm thấy sản phẩm với slug này');
   }
@@ -139,13 +145,18 @@ exports.deleteVariant = async (slug, variantId) => {
     throw new Error('ID biến thể không hợp lệ');
   }
 
-  // 1. Tìm Product bằng slug để lấy ID thực
-  const product = await Product.findOne({ slug }).select('_id');
+  // 1. Tìm Product bằng ID hoặc slug để lấy ID thực
+  let product;
+  if (mongoose.Types.ObjectId.isValid(slug)) {
+    product = await Product.findById(slug).select('_id');
+  } else {
+    product = await Product.findOne({ slug }).select('_id');
+  }
   if (!product) {
     throw new Error('Không tìm thấy sản phẩm cha');
   }
 
-  // 2. Tìm và cập nhật trạng thái
+  // 2. Tìm biến thể trong sản phẩm này
   const variant = await Variant.findOne({
     _id: variantId,
     productId: product._id
@@ -155,10 +166,16 @@ exports.deleteVariant = async (slug, variantId) => {
     throw new Error('Không tìm thấy biến thể trong sản phẩm này');
   }
 
-  variant.isActive = false;
-  await variant.save();
-
-  return variant;
+  if (variant.isActive) {
+    // Nếu đang hoạt động -> Huỷ kích hoạt (Soft delete)
+    variant.isActive = false;
+    await variant.save();
+    return variant;
+  } else {
+    // Nếu đã bị huỷ trước đó -> Xoá vĩnh viễn khỏi Database (Hard delete)
+    await Variant.deleteOne({ _id: variantId });
+    return { message: 'Đã xoá hoàn toàn biến thể khỏi database' };
+  }
 };
 
 // RESTORE PATCH /api/products/:productId/variants/:variantId/restore
@@ -167,8 +184,13 @@ exports.restoreVariant = async (slug, variantId) => {
     throw new Error('ID biến thể không hợp lệ');
   }
 
-  // 1. Tìm Product bằng slug
-  const product = await Product.findOne({ slug }).select('_id');
+  // 1. Tìm Product bằng ID hoặc slug
+  let product;
+  if (mongoose.Types.ObjectId.isValid(slug)) {
+    product = await Product.findById(slug).select('_id');
+  } else {
+    product = await Product.findOne({ slug }).select('_id');
+  }
   if (!product) {
     throw new Error('Không tìm thấy sản phẩm cha');
   }

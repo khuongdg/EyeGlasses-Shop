@@ -114,7 +114,7 @@ const ProductDetail = () => {
 
     const handleDelete = async (variantId) => {
         await deleteVariant(slug, variantId);
-        message.success('Đã xoá biến thể');
+        message.success('Thực hiện thao tác thành công');
         fetchDetail();
     };
 
@@ -156,20 +156,24 @@ const ProductDetail = () => {
                     </Button>
 
                     {record.isActive ? (
-                        <Popconfirm
-                            title="Xoá biến thể?"
-                            onConfirm={() => handleDelete(record._id)}
-                        >
-                            <Button danger size="small">Xoá</Button>
-                        </Popconfirm>
+                        <Button danger size="small" onClick={() => handleDelete(record._id)}>Huỷ</Button>
                     ) : (
-                        <Button
-                            size="small"
-                            type="dashed"
-                            onClick={() => handleRestore(record._id)}
-                        >
-                            Khôi phục
-                        </Button>
+                        <Space size="small">
+                            <Button size="small" type="dashed" onClick={() => handleRestore(record._id)}>
+                                Khôi phục
+                            </Button>
+                            <Popconfirm
+                                title="Bạn có chắc chắn muốn xoá vĩnh viễn biến thể này khỏi hệ thống?"
+                                onConfirm={() => handleDelete(record._id)}
+                                okButtonProps={{ danger: true }}
+                                okText="Xoá"
+                                cancelText="Huỷ bỏ"
+                            >
+                                <Button danger size="small">
+                                    Xoá
+                                </Button>
+                            </Popconfirm>
+                        </Space>
                     )}
                 </Space>
             )
@@ -284,16 +288,29 @@ const ProductDetail = () => {
                                             size="small"
                                             onClick={() => handleDelete(variant._id)}
                                         >
-                                            Xoá
+                                            Huỷ
                                         </Button>
                                     ) : (
-                                        <Button
-                                            size="small"
-                                            type="dashed"
-                                            onClick={() => handleRestore(variant._id)}
-                                        >
-                                            Khôi phục
-                                        </Button>
+                                        <Space size="small">
+                                            <Button
+                                                size="small"
+                                                type="dashed"
+                                                onClick={() => handleRestore(variant._id)}
+                                            >
+                                                Khôi phục
+                                            </Button>
+                                            <Popconfirm
+                                                title="Bạn có chắc chắn muốn xoá vĩnh viễn biến thể này khỏi hệ thống?"
+                                                onConfirm={() => handleDelete(variant._id)}
+                                                okButtonProps={{ danger: true }}
+                                                okText="Xoá vĩnh viễn"
+                                                cancelText="Huỷ bỏ"
+                                            >
+                                                <Button danger size="small">
+                                                    Xoá
+                                                </Button>
+                                            </Popconfirm>
+                                        </Space>
                                     )}
                                 </div>
                             </div>

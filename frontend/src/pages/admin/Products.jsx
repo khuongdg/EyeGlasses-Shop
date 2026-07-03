@@ -580,45 +580,44 @@ const Products = () => {
         {
             title: 'Hành động',
             render: (_, record) => (
-                <Space>
+                <Space onClick={(e) => e.stopPropagation()}>
                     <Button
                         size="small"
                         disabled={!record.isActive}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            openEdit(record);
-                        }}
+                        onClick={() => openEdit(record)}
                     >
                         Sửa
                     </Button>
 
                     {record.isActive ? (
-                        <Popconfirm
-                            title="Xoá sản phẩm?"
-                            onConfirm={(e) => {
-                                e.stopPropagation();
-                                handleDelete(record._id);
-                            }}
-                        >
-                            <Button
-                                danger
-                                size="small"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                Xoá
-                            </Button>
-                        </Popconfirm>
-                    ) : (
                         <Button
+                            danger
                             size="small"
-                            type="dashed"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleRestore(record._id);
-                            }}
+                            onClick={() => handleDelete(record._id)}
                         >
-                            Khôi phục
+                            Huỷ
                         </Button>
+                    ) : (
+                        <Space size="small">
+                            <Button
+                                size="small"
+                                type="dashed"
+                                onClick={() => handleRestore(record._id)}
+                            >
+                                Khôi phục
+                            </Button>
+                            <Popconfirm
+                                title="Bạn có chắc chắn muốn xoá vĩnh viễn sản phẩm này khỏi hệ thống?"
+                                onConfirm={() => handleDelete(record._id)}
+                                okButtonProps={{ danger: true }}
+                                okText="Xoá vĩnh viễn"
+                                cancelText="Huỷ bỏ"
+                            >
+                                <Button danger size="small">
+                                    Xoá
+                                </Button>
+                            </Popconfirm>
+                        </Space>
                     )}
                 </Space>
             )
@@ -739,7 +738,18 @@ const Products = () => {
                     {products.map((product) => (
                         <div
                             key={product._id}
-                            onClick={() => navigate(`/admin/products/${product._id}`)}
+                            onClick={() => {
+                                if (product.slug) {
+                                    navigate(`/admin/products/${product.slug}`, {
+                                        state: {
+                                            fromPage: pagination.current,
+                                            fromKeyword: searchKeyword
+                                        }
+                                    });
+                                } else {
+                                    navigate(`/admin/products/${product._id}`);
+                                }
+                            }}
                             className="border rounded-lg p-4 shadow-sm bg-white cursor-pointer"
                         >
                             <div className="flex justify-between items-start">
@@ -773,14 +783,11 @@ const Products = () => {
                                 )}
                             </div>
 
-                            <div className="mt-3 flex gap-2 flex-wrap">
+                            <div className="mt-3 flex gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
                                 <Button
                                     size="small"
                                     disabled={!product.isActive}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        openEdit(product);
-                                    }}
+                                    onClick={() => openEdit(product)}
                                 >
                                     Sửa
                                 </Button>
@@ -789,24 +796,31 @@ const Products = () => {
                                     <Button
                                         danger
                                         size="small"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDelete(product._id);
-                                        }}
+                                        onClick={() => handleDelete(product._id)}
                                     >
-                                        Xoá
+                                        Huỷ
                                     </Button>
                                 ) : (
-                                    <Button
-                                        size="small"
-                                        type="dashed"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRestore(product._id);
-                                        }}
-                                    >
-                                        Khôi phục
-                                    </Button>
+                                    <Space size="small">
+                                        <Button
+                                            size="small"
+                                            type="dashed"
+                                            onClick={() => handleRestore(product._id)}
+                                        >
+                                            Khôi phục
+                                        </Button>
+                                        <Popconfirm
+                                            title="Bạn có chắc chắn muốn xoá vĩnh viễn sản phẩm này khỏi hệ thống?"
+                                            onConfirm={() => handleDelete(product._id)}
+                                            okButtonProps={{ danger: true }}
+                                            okText="Xoá vĩnh viễn"
+                                            cancelText="Huỷ bỏ"
+                                        >
+                                            <Button danger size="small">
+                                                Xoá
+                                            </Button>
+                                        </Popconfirm>
+                                    </Space>
                                 )}
                             </div>
                         </div>
