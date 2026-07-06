@@ -8,7 +8,7 @@ import {
     KeyOutlined,
     LockOutlined
 } from '@ant-design/icons';
-import { changePassword } from '../../../services/authService';
+import { changePassword, logout } from '../../../services/authService';
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -18,6 +18,7 @@ const StaffHeader = ({ collapsed, setCollapsed }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
 
+    // Xử lý gọi API đổi mật khẩu
     const handleChangePassword = async (values) => {
         setLoading(true);
         try {
@@ -41,7 +42,12 @@ const StaffHeader = ({ collapsed, setCollapsed }) => {
             label: 'Đăng xuất',
             icon: <LogoutOutlined />,
             danger: true,
-            onClick: () => {
+            onClick: async () => {
+                try {
+                    await logout();
+                } catch (e) {
+                    console.error('Lỗi khi gọi API đăng xuất:', e);
+                }
                 localStorage.clear();
                 window.location.href = '/login';
             }

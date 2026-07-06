@@ -325,26 +325,30 @@ const Invoices = () => {
             title: 'Hành động',
             render: (_, record) => (
                 <Space size="small">
-                    {/* NÚT IN PHIẾU */}
-                    <Button
-                        icon={<PrinterOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            triggerPrint(record);
-                        }}
-                        title="In phiếu xuất kho"
-                    />
+                    {record.isActive && (
+                        <>
+                            {/* NÚT IN PHIẾU */}
+                            <Button
+                                icon={<PrinterOutlined />}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    triggerPrint(record);
+                                }}
+                                title="In phiếu xuất kho"
+                            />
 
-                    <Button
-                        icon={<BarcodeOutlined />}
-                        title="In Tem mã vạch"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setLabelItems(record.items);
-                            setViewingInvoice(record);
-                            setIsLabelModalOpen(true);
-                        }}
-                    />
+                            <Button
+                                icon={<BarcodeOutlined />}
+                                title="In Tem mã vạch"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLabelItems(record.items);
+                                    setViewingInvoice(record);
+                                    setIsLabelModalOpen(true);
+                                }}
+                            />
+                        </>
+                    )}
 
                     {record.isActive && (
                         <span onClick={(e) => e.stopPropagation()}>
@@ -516,11 +520,11 @@ const Invoices = () => {
                             </div>
 
                             {/* Action Buttons */}
-                            <div
-                                className="mt-4 flex gap-2 flex-wrap"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                {invoice.isActive && (
+                            {invoice.isActive && (
+                                <div
+                                    className="mt-4 flex gap-2 flex-wrap"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
                                     <span onClick={(e) => e.stopPropagation()}>
                                         <Popconfirm
                                             title="Xác nhận hủy hóa đơn?"
@@ -533,24 +537,24 @@ const Invoices = () => {
                                             </Button>
                                         </Popconfirm>
                                     </span>
-                                )}
 
-                                <Button
-                                    size="small"
-                                    icon={<PrinterOutlined />}
-                                    onClick={() => triggerPrint(invoice)}
-                                />
+                                    <Button
+                                        size="small"
+                                        icon={<PrinterOutlined />}
+                                        onClick={() => triggerPrint(invoice)}
+                                    />
 
-                                <Button
-                                    size="small"
-                                    icon={<BarcodeOutlined />}
-                                    onClick={() => {
-                                        setLabelItems(invoice.items);
-                                        setViewingInvoice(invoice);
-                                        setIsLabelModalOpen(true);
-                                    }}
-                                />
-                            </div>
+                                    <Button
+                                        size="small"
+                                        icon={<BarcodeOutlined />}
+                                        onClick={() => {
+                                            setLabelItems(invoice.items);
+                                            setViewingInvoice(invoice);
+                                            setIsLabelModalOpen(true);
+                                        }}
+                                    />
+                                </div>
+                            )}
                         </div>
                     ))}
 

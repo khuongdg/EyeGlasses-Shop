@@ -8,7 +8,7 @@ import {
   LockOutlined,
   KeyOutlined
 } from '@ant-design/icons';
-import { changePassword } from '../../../services/authService';
+import { changePassword, logout } from '../../../services/authService';
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -37,7 +37,12 @@ const AdminHeader = ({ collapsed, setCollapsed }) => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (e) {
+      console.error('Lỗi khi gọi API đăng xuất:', e);
+    }
     localStorage.clear();
     window.location.href = '/login';
   };

@@ -245,8 +245,8 @@ const Products = () => {
             // 1. Thiết lập độ rộng cột
             worksheet.columns = [
                 { key: 'stt', width: 8 },
-                { key: 'sku', width: 22 },
                 { key: 'productName', width: 30 },
+                { key: 'sku', width: 22 },
                 { key: 'brand', width: 20 },
                 { key: 'colorCode', width: 12 },
                 { key: 'unit', width: 12 },
@@ -274,8 +274,8 @@ const Products = () => {
             // 3. Tiêu đề Bảng
             const headers = [
                 'STT',
-                'Mã SKU',
                 'Tên sản phẩm',
+                'Mã SKU',
                 'Thương hiệu',
                 'Màu sắc',
                 'Đơn vị',
@@ -296,14 +296,34 @@ const Products = () => {
                 };
             });
 
+            // Gom nhóm & Sắp xếp các biến thể để sản phẩm cùng tên nằm cạnh nhau
+            const grouped = {};
+            const productOrder = [];
+            variants.forEach(v => {
+                const name = v.productId?.name || 'N/A';
+                if (!grouped[name]) {
+                    grouped[name] = [];
+                    productOrder.push(name);
+                }
+                grouped[name].push(v);
+            });
+
+            productOrder.sort((a, b) => a.localeCompare(b, 'vi', { sensitivity: 'base' }));
+
+            const sortedVariants = [];
+            productOrder.forEach(name => {
+                const group = grouped[name].sort((a, b) => (a.sku || '').localeCompare(b.sku || ''));
+                sortedVariants.push(...group);
+            });
+
             // 4. Đổ dữ liệu hàng tồn kho
             let totalInventory = 0;
-            variants.forEach((v, index) => {
+            sortedVariants.forEach((v, index) => {
                 totalInventory += v.inventory || 0;
                 const row = worksheet.addRow([
                     index + 1,
-                    v.sku,
                     v.productId?.name || 'N/A',
+                    v.sku,
                     v.productId?.brand || 'N/A',
                     v.colorCode || 'N/A',
                     v.unit || 'Cây',
@@ -313,29 +333,14 @@ const Products = () => {
 
                 row.height = 22;
 
-                // Căn giữa STT, Màu, Đvt
-                [1, 5, 6].forEach(colIdx => {
-                    row.getCell(colIdx).alignment = { horizontal: 'center', vertical: 'middle' };
-                });
+                // Định dạng số cho Giá bán và Số lượng tồn
+                row.getCell(7).numFmt = '#,##0';
+                row.getCell(8).numFmt = '#,##0';
 
-                // Căn trái Mã SKU, Tên, Thương hiệu
-                [2, 3, 4].forEach(colIdx => {
-                    row.getCell(colIdx).alignment = { horizontal: 'left', vertical: 'middle' };
-                });
-
-                // Giá bán (Định dạng số)
-                const priceCell = row.getCell(7);
-                priceCell.numFmt = '#,##0';
-                priceCell.alignment = { horizontal: 'right', vertical: 'middle' };
-
-                // Số lượng tồn (Định dạng số)
-                const invCell = row.getCell(8);
-                invCell.numFmt = '#,##0';
-                invCell.alignment = { horizontal: 'right', vertical: 'middle' };
-
-                // Đường viền ô
+                // Định dạng font, đường viền và căn giữa nội dung cho tất cả các cột
                 row.eachCell(cell => {
                     cell.font = { name: 'Arial', size: 10 };
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
                     cell.border = {
                         top: { style: 'thin', color: { argb: 'FFD3D3D3' } },
                         left: { style: 'thin', color: { argb: 'FFD3D3D3' } },
@@ -344,6 +349,26 @@ const Products = () => {
                     };
                 });
             });
+
+            // Tìm và gộp các ô Tên sản phẩm trùng nhau (Cột B / số 2)
+            // Dòng dữ liệu bắt đầu từ dòng số 5
+            let startRow = 5;
+            for (let i = 1; i < sortedVariants.length; i++) {
+                const currentName = sortedVariants[i].productId?.name || 'N/A';
+                const prevName = sortedVariants[i - 1].productId?.name || 'N/A';
+
+                if (currentName !== prevName) {
+                    const endRow = 5 + i - 1;
+                    if (endRow > startRow) {
+                        worksheet.mergeCells(startRow, 2, endRow, 2);
+                    }
+                    startRow = 5 + i;
+                }
+            }
+            const finalEndRow = 5 + sortedVariants.length - 1;
+            if (finalEndRow > startRow) {
+                worksheet.mergeCells(startRow, 2, finalEndRow, 2);
+            }
 
             // 5. Dòng Tổng cộng
             const totalRow = worksheet.addRow([

@@ -4,10 +4,11 @@ const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  withCredentials: true // Cho phép truyền nhận cookie (refreshToken)
 });
 
-// 1. Request Interceptor: Gắn token vào Header trước khi gửi yêu cầu
+// Request Interceptor: Gắn token vào Header trước khi gửi yêu cầu
 axiosClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -18,32 +19,94 @@ axiosClient.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-// 2. Response Interceptor: Xử lý kết quả trả về và bắt lỗi Token
+// Quản lý trạng thái Refresh Token để tránh gọi trùng lặp nhiều lần
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+// Response Interceptor: Xử lý kết quả và tự động refresh token khi hết hạn
 axiosClient.interceptors.response.use(
   (response) => {
-    // Trả về dữ liệu nếu yêu cầu thành công
     return response;
   },
-  (error) => {
-    // Kiểm tra nếu lỗi trả về là 401 (Unauthorized)
-    if (error.response && error.response.status === 401) {
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Kiểm tra nếu lỗi 401 (Unauthorized) và chưa từng retry request này
+    if (error.response && error.response.status === 401 && originalRequest && !originalRequest._retry) {
       const errorMessage = error.response.data?.message || "";
+      
+      // Không tiến hành làm mới token nếu request ban đầu là API Login hoặc Refresh
+      const isAuthRequest = originalRequest.url && (
+        originalRequest.url.includes('/auth/login') || 
+        originalRequest.url.includes('/auth/refresh')
+      );
 
-      // Kiểm tra cụ thể các thông báo liên quan đến Token
-      if (errorMessage.includes("Invalid token") || errorMessage.includes("expired")) {
-        // Xóa thông tin cũ để tránh vòng lặp lỗi
-        localStorage.removeItem('token');
-        localStorage.removeItem('role');
+      if (!isAuthRequest) {
+        if (isRefreshing) {
+          // Nếu đang có tiến trình làm mới token chạy, xếp request này vào hàng đợi
+          return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          })
+            .then((token) => {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              return axiosClient(originalRequest);
+            })
+            .catch((err) => {
+              return Promise.reject(err);
+            });
+        }
 
-        // Thông báo cho người dùng
-        console.error("Phiên làm việc hết hạn hoặc Token không hợp lệ.");
+        originalRequest._retry = true;
+        isRefreshing = true;
 
-        // Điều hướng về trang login nếu không phải đang ở trang login
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
+        try {
+          // Gọi API refresh token (sử dụng axios gốc để tránh trigger interceptor của axiosClient)
+          const res = await axios.post(
+            `${import.meta.env.VITE_API_URL}/auth/refresh`,
+            {},
+            { withCredentials: true }
+          );
+
+          if (res.data && res.data.success) {
+            const newToken = res.data.data.token;
+            localStorage.setItem('token', newToken);
+
+            // Cập nhật Authorization cho request gốc
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+
+            // Giải phóng hàng đợi và thực hiện lại tất cả request lỗi
+            processQueue(null, newToken);
+            isRefreshing = false;
+
+            return axiosClient(originalRequest);
+          }
+        } catch (refreshError) {
+          // Nếu làm mới thất bại (Refresh Token hết hạn), đăng xuất người dùng
+          processQueue(refreshError, null);
+          isRefreshing = false;
+
+          localStorage.removeItem('token');
+          localStorage.removeItem('role');
+
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
+          return Promise.reject(refreshError);
         }
       }
     }
+
     return Promise.reject(error);
   }
 );
