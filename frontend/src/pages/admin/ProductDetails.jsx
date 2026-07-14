@@ -146,14 +146,14 @@ const ProductDetail = () => {
             title: 'Hành động',
             render: (_, record) => (
                 <Space>
-                    <Button
-                        size="small"
-                        disabled={!record.isActive}
-                        title={!record.isActive ? 'Biến thể đã bị vô hiệu hoá' : ''}
-                        onClick={() => openEdit(record)}
-                    >
-                        Sửa
-                    </Button>
+                    {record.isActive && (
+                        <Button
+                            size="small"
+                            onClick={() => openEdit(record)}
+                        >
+                            Sửa
+                        </Button>
+                    )}
 
                     {record.isActive ? (
                         <Button danger size="small" onClick={() => handleDelete(record._id)}>Huỷ</Button>

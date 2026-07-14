@@ -9,9 +9,10 @@ import {
     Tag,
     Space,
     Select,
-    Grid
+    Grid,
+    Popconfirm
 } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import debounce from 'lodash/debounce';
 
 import {
@@ -131,23 +132,7 @@ const Staff = () => {
         fetchStaffs(searchKeyword, pagination.current, pagination.pageSize);
     };
 
-    const highlightText = (text = '', keyword = '') => {
-        if (!keyword) return text;
 
-        const regex = new RegExp(`(${keyword})`, 'gi');
-        return text.split(regex).map((part, index) =>
-            part.toLowerCase() === keyword.toLowerCase() ? (
-                <span
-                    key={index}
-                    className="bg-yellow-300 px-1 font-semibold rounded"
-                >
-                    {part}
-                </span>
-            ) : (
-                part
-            )
-        );
-    };
 
     /* ================= TABLE ================= */
     const columns = [
@@ -157,13 +142,11 @@ const Staff = () => {
         },
         {
             title: 'Tên nhân viên',
-            dataIndex: 'name',
-            render: (text) => highlightText(text, searchKeyword)
+            dataIndex: 'name'
         },
         {
             title: 'SĐT',
-            dataIndex: 'phone',
-            render: (text) => highlightText(text, searchKeyword)
+            dataIndex: 'phone'
         },
         {
             title: 'Email',
@@ -190,31 +173,49 @@ const Staff = () => {
         {
             title: 'Hành động',
             render: (_, record) => (
-                <Space>
-                    <Button
-                        size="small"
-                        disabled={!record.isActive}
-                        onClick={() => {
-                            setEditing(record);
-                            form.setFieldsValue(record);
-                            setOpenModal(true);
-                        }}
-                    >
-                        Sửa
-                    </Button>
-
-                    {record.isActive ? (
-                        <Button danger size="small" onClick={() => handleDelete(record._id)}>
-                            Xoá
-                        </Button>
-                    ) : (
+                <Space wrap>
+                    {record.isActive && (
                         <Button
                             size="small"
-                            type="dashed"
-                            onClick={() => handleRestore(record._id)}
+                            onClick={() => {
+                                setEditing(record);
+                                form.setFieldsValue(record);
+                                setOpenModal(true);
+                            }}
                         >
-                            Khôi phục
+                            Sửa
                         </Button>
+                    )}
+
+                    {record.isActive ? (
+                        <Button
+                            danger
+                            size="small"
+                            onClick={() => handleDelete(record._id)}
+                        >
+                            Huỷ
+                        </Button>
+                    ) : (
+                        <Space size="small">
+                            <Button
+                                size="small"
+                                type="dashed"
+                                onClick={() => handleRestore(record._id)}
+                            >
+                                Khôi phục
+                            </Button>
+                            <Popconfirm
+                                title="Bạn có chắc chắn muốn xoá vĩnh viễn nhân viên này khỏi hệ thống?"
+                                onConfirm={() => handleDelete(record._id)}
+                                okButtonProps={{ danger: true }}
+                                okText="Xoá"
+                                cancelText="Huỷ"
+                            >
+                                <Button danger size="small">
+                                    Xoá
+                                </Button>
+                            </Popconfirm>
+                        </Space>
                     )}
                 </Space>
             )
@@ -227,8 +228,10 @@ const Staff = () => {
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <Input
                     placeholder="Tìm theo tên / SĐT"
+                    prefix={<SearchOutlined />}
                     allowClear
-                    className="w-full sm:w-72"
+                    className="flex-1"
+                    style={{ borderRadius: '20px' }}
                     onChange={(e) => debounceSearch(e.target.value)}
                 />
 
@@ -278,13 +281,13 @@ const Staff = () => {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <div className="font-semibold text-base">
-                                        {highlightText(staff.name, searchKeyword)}
+                                        {staff.name}
                                     </div>
                                     <div className="text-sm text-gray-600">
                                         Mã NV: {staff.staffCode}
                                     </div>
                                     <div className="text-sm text-gray-600">
-                                        {highlightText(staff.phone, searchKeyword)}
+                                        {staff.phone}
                                     </div>
                                 </div>
 

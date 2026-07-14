@@ -10,9 +10,10 @@ import {
   Tag,
   Space,
   Grid,
-  Upload
+  Upload,
+  Popconfirm
 } from 'antd';
-import { PlusOutlined, FileExcelOutlined } from '@ant-design/icons';
+import { PlusOutlined, FileExcelOutlined, SearchOutlined } from '@ant-design/icons';
 import debounce from 'lodash/debounce';
 
 import {
@@ -204,36 +205,15 @@ const Customer = () => {
     fetchCustomers(searchKeyword, pagination.current, pagination.pageSize);
   };
 
-  const highlightText = (text = '', keyword = '') => {
-    if (!keyword) return text;
-
-    const regex = new RegExp(`(${keyword})`, 'gi');
-    return text.split(regex).map((part, index) =>
-      part.toLowerCase() === keyword.toLowerCase() ? (
-        <span
-          key={index}
-          className="bg-yellow-300 px-1 font-semibold rounded"
-        >
-          {part}
-        </span>
-      ) : (
-        part
-      )
-    );
-  };
-
-
   /* ================= TABLE ================= */
   const columns = [
     {
       title: 'Tên khách hàng',
-      dataIndex: 'name',
-      render: (text) => highlightText(text, searchKeyword)
+      dataIndex: 'name'
     },
     {
       title: 'SĐT',
-      dataIndex: 'phone',
-      render: (text) => highlightText(text, searchKeyword)
+      dataIndex: 'phone'
     },
     {
       title: 'Email',
@@ -257,30 +237,48 @@ const Customer = () => {
       title: 'Hành động',
       render: (_, record) => (
         <Space wrap>
-          <Button
-            size="small"
-            disabled={!record.isActive}
-            onClick={() => {
-              setEditing(record);
-              form.setFieldsValue(record);
-              setOpenModal(true);
-            }}
-          >
-            Sửa
-          </Button>
-
-          {record.isActive ? (
-            <Button danger size="small" onClick={() => handleDelete(record._id)}>
-              Xoá
-            </Button>
-          ) : (
+          {record.isActive && (
             <Button
               size="small"
-              type="dashed"
-              onClick={() => handleRestore(record._id)}
+              onClick={() => {
+                setEditing(record);
+                form.setFieldsValue(record);
+                setOpenModal(true);
+              }}
             >
-              Khôi phục
+              Sửa
             </Button>
+          )}
+
+          {record.isActive ? (
+            <Button
+              danger
+              size="small"
+              onClick={() => handleDelete(record._id)}
+            >
+              Huỷ
+            </Button>
+          ) : (
+            <Space size="small">
+              <Button
+                size="small"
+                type="dashed"
+                onClick={() => handleRestore(record._id)}
+              >
+                Khôi phục
+              </Button>
+              <Popconfirm
+                title="Bạn có chắc chắn muốn xoá vĩnh viễn khách hàng này khỏi hệ thống?"
+                onConfirm={() => handleDelete(record._id)}
+                okButtonProps={{ danger: true }}
+                okText="Xoá"
+                cancelText="Huỷ"
+              >
+                <Button danger size="small">
+                  Xoá
+                </Button>
+              </Popconfirm>
+            </Space>
           )}
         </Space>
       )
@@ -293,8 +291,10 @@ const Customer = () => {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <Input
           placeholder="Tìm theo tên / SĐT"
+          prefix={<SearchOutlined />}
           allowClear
-          className="w-full sm:w-72"
+          className="flex-1"
+          style={{ borderRadius: '20px' }}
           onChange={(e) => debounceSearch(e.target.value)}
         />
 

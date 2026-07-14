@@ -133,17 +133,19 @@ exports.searchStaffs = async ({
 
 // DELETE /api/staffs/:staffId
 exports.deleteStaff = async (staffId) => {
-  const staff = await Staff.findByIdAndUpdate(
-    staffId,
-    { isActive: false },
-    { new: true }
-  );
-
+  const staff = await Staff.findById(staffId);
   if (!staff) {
     throw new Error('Staff not found');
   }
 
-  return staff;
+  if (staff.isActive) {
+    staff.isActive = false;
+    await staff.save();
+    return staff;
+  } else {
+    await Staff.deleteOne({ _id: staffId });
+    return { message: 'Staff deleted permanently' };
+  }
 };
 
 // RESTORE /api/staffs/:staffId/restore

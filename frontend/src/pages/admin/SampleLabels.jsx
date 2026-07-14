@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import debounce from 'lodash/debounce';
 import { useReactToPrint } from 'react-to-print';
 import {
     Table,
@@ -68,6 +69,7 @@ const SampleLabels = () => {
         pageSize: 10,
         isSample: true // Lọc chỉ phiếu tem mẫu
     });
+    const [keyword, setKeyword] = useState('');
 
     const { useBreakpoint } = Grid;
     const screens = useBreakpoint();
@@ -135,24 +137,19 @@ const SampleLabels = () => {
     };
 
     /* ================= SEARCH & RESET ================= */
-    const handleSearch = () => {
-        const newParams = { ...queryParams, page: 1 };
-        setQueryParams(newParams);
-        fetchInvoices(newParams);
-    };
-
-    const handleReset = () => {
-        const resetParams = {
-            keyword: '',
-            dateFrom: null,
-            dateTo: null,
-            page: 1,
-            pageSize: 10,
-            isSample: true
-        };
-        setQueryParams(resetParams);
-        fetchInvoices(resetParams);
-    };
+    const debounceSearch = useRef(
+        debounce((val) => {
+            setQueryParams((prev) => {
+                const newParams = {
+                    ...prev,
+                    page: 1,
+                    keyword: val.trim()
+                };
+                fetchInvoices(newParams);
+                return newParams;
+            });
+        }, 400)
+    ).current;
 
     /* ================= ACTIONS ================= */
     const handleDelete = async (id) => {
@@ -403,39 +400,43 @@ const SampleLabels = () => {
             {/* FILTER BAR */}
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                 <Row gutter={[12, 12]} align="middle">
-                    <Col xs={24} sm={12} md={8}>
+                    {/* SEARCH */}
+                    <Col xs={24} md={14} lg={16}>
                         <Input
                             placeholder="Mã phiếu hoặc tên nhân viên..."
                             prefix={<SearchOutlined className="text-gray-400" />}
-                            value={queryParams.keyword}
-                            onChange={(e) => setQueryParams({ ...queryParams, keyword: e.target.value })}
-                            onPressEnter={handleSearch}
+                            value={keyword}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setKeyword(val);
+                                debounceSearch(val);
+                            }}
                             allowClear
                             size={isMobile ? 'small' : 'middle'}
+                            className="w-full"
+                            style={{ borderRadius: '20px' }}
                         />
                     </Col>
 
-                    <Col xs={24} sm={12} md={10}>
+                    {/* DATE RANGE */}
+                    <Col xs={24} md={10} lg={8}>
                         <RangePicker
                             className="w-full"
                             placeholder={['Từ ngày', 'Đến ngày']}
                             value={queryParams.dateFrom && queryParams.dateTo ? [queryParams.dateFrom, queryParams.dateTo] : null}
+                            style={{ borderRadius: '20px' }}
                             onChange={(dates) => {
-                                setQueryParams({
+                                const newParams = {
                                     ...queryParams,
+                                    page: 1,
                                     dateFrom: dates ? dates[0] : null,
                                     dateTo: dates ? dates[1] : null
-                                });
+                                };
+                                setQueryParams(newParams);
+                                fetchInvoices(newParams);
                             }}
                             size={isMobile ? 'small' : 'middle'}
                         />
-                    </Col>
-
-                    <Col xs={24} md={6}>
-                        <div className="flex gap-2 w-full">
-                            <Button type="primary" onClick={handleSearch} className="w-full" size={isMobile ? 'small' : 'middle'}>Lọc dữ liệu</Button>
-                            <Button onClick={handleReset} className="w-full" size={isMobile ? 'small' : 'middle'}>Reset</Button>
-                        </div>
                     </Col>
                 </Row>
             </div>

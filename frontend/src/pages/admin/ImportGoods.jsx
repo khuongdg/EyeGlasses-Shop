@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import debounce from 'lodash/debounce';
 import {
     Table, Button, Modal, Form, Input, Select, InputNumber, Grid,
     message, Space, Row, Col, Divider, Typography, DatePicker, Card, Tag, Upload
@@ -31,6 +32,7 @@ const ImportGoods = () => {
 
     const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
     const [queryParams, setQueryParams] = useState({ keyword: '', dateFrom: null, dateTo: null });
+    const [keyword, setKeyword] = useState('');
 
     const watchItems = Form.useWatch('items', form);
 
@@ -127,10 +129,10 @@ const ImportGoods = () => {
     };
 
     /* ================= FETCH DATA ================= */
-    const fetchImports = async (page = 1, pageSize = 10) => {
+    const fetchImports = async (page = 1, pageSize = 10, params = queryParams) => {
         setLoading(true);
         try {
-            const res = await getAllImports({ ...queryParams, page, limit: pageSize });
+            const res = await getAllImports({ ...params, page, limit: pageSize });
             setImports(res.data.data);
             setPagination({ current: page, pageSize: pageSize, total: res.data.total });
         } catch (err) {
@@ -140,6 +142,19 @@ const ImportGoods = () => {
             setLoading(false);
         }
     };
+
+    const debounceSearch = useRef(
+        debounce((val) => {
+            setQueryParams((prev) => {
+                const newParams = {
+                    ...prev,
+                    keyword: val.trim()
+                };
+                fetchImports(1, pagination.pageSize, newParams);
+                return newParams;
+            });
+        }, 400)
+    ).current;
 
     const fetchInitialData = async () => {
         try {
@@ -214,7 +229,7 @@ const ImportGoods = () => {
     };
 
     const columns = [
-        { title: 'Mã phiếu', dataIndex: 'importCode', render: (v) => <b style={{ color: '#1677ff' }}>{v}</b> },
+        { title: 'Mã phiếu', dataIndex: 'importCode' },
         { title: 'Ngày nhập', dataIndex: 'createdAt', render: (v) => new Date(v).toLocaleString('vi-VN') },
         { title: 'Nhân viên', dataIndex: 'staffName' },
         { title: 'Nhà cung cấp', dataIndex: 'supplier', render: (v) => v || '-' },
@@ -246,21 +261,41 @@ const ImportGoods = () => {
                 </Col>
             </Row>
 
-            <Card style={{ marginTo: 0, marginBottom: 16 }} size="small">
+            <Card style={{ marginTop: 0, marginBottom: 16 }} size="small">
                 <Row gutter={[16, 16]} align="bottom">
-                    <Col xs={24} md={8}>
-                        <Text strong>Tìm kiếm</Text>
-                        <Input placeholder="Mã phiếu nhập..." prefix={<SearchOutlined />} value={queryParams.keyword} onChange={e => setQueryParams({ ...queryParams, keyword: e.target.value })} onPressEnter={() => fetchImports(1)} />
+                    {/* SEARCH */}
+                    <Col xs={24} md={14} lg={16}>
+                        <Text strong className="block mb-1">Tìm kiếm</Text>
+                        <Input
+                            placeholder="Mã phiếu nhập..."
+                            prefix={<SearchOutlined />}
+                            allowClear
+                            value={keyword}
+                            style={{ borderRadius: '20px' }}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setKeyword(val);
+                                debounceSearch(val);
+                            }}
+                        />
                     </Col>
-                    <Col xs={24} md={8}>
-                        <Text strong>Khoảng thời gian</Text>
-                        <RangePicker style={{ width: '100%' }} format="DD/MM/YYYY" onChange={(dates, strings) => setQueryParams({ ...queryParams, dateFrom: strings[0], dateTo: strings[1] })} />
-                    </Col>
-                    <Col xs={24} md={8}>
-                        <Space direction={isMobile ? "vertical" : "horizontal"} className={isMobile ? "w-full" : ""}>
-                            <Button type="primary" block={isMobile} onClick={() => fetchImports(1)}>Lọc dữ liệu</Button>
-                            <Button block={isMobile} onClick={() => { setQueryParams({ keyword: '', dateFrom: null, dateTo: null }); fetchImports(1); }}>Reset</Button>
-                        </Space>
+
+                    {/* DATE RANGE */}
+                    <Col xs={24} md={10} lg={8}>
+                        <Text strong className="block mb-1">Khoảng thời gian</Text>
+                        <RangePicker
+                            style={{ width: '100%', borderRadius: '20px' }}
+                            format="DD/MM/YYYY"
+                            onChange={(dates, strings) => {
+                                const newParams = {
+                                    ...queryParams,
+                                    dateFrom: strings[0] || null,
+                                    dateTo: strings[1] || null
+                                };
+                                setQueryParams(newParams);
+                                fetchImports(1, pagination.pageSize, newParams);
+                            }}
+                        />
                     </Col>
                 </Row>
             </Card>
@@ -272,7 +307,7 @@ const ImportGoods = () => {
                     {imports.map((record) => (
                         <Card key={record._id} size="small" className="shadow-sm" onClick={() => { setViewingImport(record); setOpenDetail(true); }}>
                             <div className="flex justify-between mb-2">
-                                <Text strong style={{ color: '#1677ff' }}>{record.importCode}</Text>
+                                <Text strong>{record.importCode}</Text>
                                 {record.isActive ? <Tag color="green">Hợp lệ</Tag> : <Tag color="red">Đã hủy</Tag>}
                             </div>
                             <div className="text-sm mb-2">

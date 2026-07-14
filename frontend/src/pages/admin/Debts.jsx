@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import debounce from 'lodash/debounce';
 import {
     Table, Tag, Button, Space, Modal, Form, Grid,
     InputNumber, Input, message, Progress, Typography, Timeline, Card, Row, Col
 } from 'antd';
-import { DollarOutlined, HistoryOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { DollarOutlined, HistoryOutlined, CheckCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import { getDebts, payDebt } from '../../services/invoiceService';
 
 const { Text, Title } = Typography;
@@ -22,15 +23,16 @@ const Debts = () => {
     const [total, setTotal] = useState(0);
     const [totalRemaining, setTotalRemaining] = useState(0);
     const [totalPaid, setTotalPaid] = useState(0);
+    const [keyword, setKeyword] = useState('');
 
     const screens = useBreakpoint();
     const isMobile = !screens.md;
 
     /* ================= FETCH DATA ================= */
-    const fetchDebts = async (currentPage = page, currentPageSize = pageSize) => {
+    const fetchDebts = async (currentPage = page, currentPageSize = pageSize, searchKeyword = keyword) => {
         setLoading(true);
         try {
-            const res = await getDebts({ page: currentPage, limit: currentPageSize });
+            const res = await getDebts({ page: currentPage, limit: currentPageSize, keyword: searchKeyword });
             setDebts(res.data.data);
             setTotal(res.data.total || 0);
             setTotalRemaining(res.data.totalRemaining || 0);
@@ -43,8 +45,20 @@ const Debts = () => {
     };
 
     useEffect(() => {
-        fetchDebts(page, pageSize);
+        fetchDebts(page, pageSize, keyword);
     }, [page, pageSize]);
+
+    const debounceSearch = useRef(
+        debounce((value) => {
+            const trimmed = value.trim();
+            setPage((prevPage) => {
+                if (prevPage === 1) {
+                    fetchDebts(1, pageSize, trimmed);
+                }
+                return 1;
+            });
+        }, 400)
+    ).current;
 
     /* ================= HANDLERS ================= */
     const handlePayment = async (values) => {
@@ -92,13 +106,13 @@ const Debts = () => {
             render: (_, record) => {
                 const percent = Math.round((record.paidAmount / record.totalAmount) * 100);
                 return (
-                    <div style={{ width: '100%' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
                         <Progress
                             percent={percent}
                             size="small"
                             status={record.status === 'COMPLETED' ? 'success' : 'active'}
                         />
-                        <Text type="secondary" style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>
+                        <Text type="secondary" style={{ fontSize: '11px' }}>
                             Đã trả: {record.paidAmount.toLocaleString()}₫
                         </Text>
                     </div>
@@ -185,8 +199,25 @@ const Debts = () => {
                 </Row>
             </Card>
 
+            {/* FILTER BAR */}
+            <div className="mb-4">
+                <Input
+                    placeholder="Tìm theo mã phiếu, tên hoặc số điện thoại khách hàng..."
+                    prefix={<SearchOutlined />}
+                    allowClear
+                    value={keyword}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        setKeyword(val);
+                        debounceSearch(val);
+                    }}
+                    style={{ width: '100%', borderRadius: '20px' }}
+                />
+            </div>
+
             {!isMobile ? (
                 <Table
+                    className="no-wrap-table"
                     dataSource={debts}
                     columns={columns}
                     rowKey="_id"
@@ -201,7 +232,7 @@ const Debts = () => {
                             setPageSize(ps);
                         }
                     }}
-                    scroll={{ x: 1100 }}
+                    scroll={{ x: 'max-content' }}
                 />
             ) : (
                 <div className="space-y-3">
@@ -379,6 +410,14 @@ const Debts = () => {
                     )}
                 </Timeline>
             </Modal>
+
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                    .no-wrap-table .ant-table-cell {
+                        white-space: nowrap !important;
+                    }
+                `
+            }} />
         </div>
     );
 };

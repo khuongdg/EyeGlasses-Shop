@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRef } from 'react';
+import debounce from 'lodash/debounce';
 import { useReactToPrint } from 'react-to-print';
 import {
     Table,
@@ -81,6 +82,7 @@ const Invoices = () => {
         page: 1,
         pageSize: 10,
     });
+    const [keyword, setKeyword] = useState('');
 
     const { useBreakpoint } = Grid;
     const screens = useBreakpoint();
@@ -149,22 +151,19 @@ const Invoices = () => {
         fetchInvoices(newParams);
     };
 
-    const handleSearch = () => {
-        fetchInvoices({ ...queryParams, page: 1 });
-    };
-
-    // Xử lý khi nhấn nút "Reset"
-    const handleReset = () => {
-        const defaultParams = {
-            keyword: '',
-            dateFrom: null,
-            dateTo: null,
-            page: 1,
-            limit: 10
-        };
-        setQueryParams(defaultParams);
-        fetchInvoices(defaultParams);
-    };
+    const debounceSearch = useRef(
+        debounce((val) => {
+            setQueryParams((prev) => {
+                const newParams = {
+                    ...prev,
+                    page: 1,
+                    keyword: val.trim()
+                };
+                fetchInvoices(newParams);
+                return newParams;
+            });
+        }, 400)
+    ).current;
 
     /* ================= CALC ================= */
     // Hàm 1: Tính thành tiền cho từng dòng (để hiển thị trên từng hàng sản phẩm)
@@ -391,58 +390,44 @@ const Invoices = () => {
             <div className="bg-white p-4 rounded-lg shadow-sm mb-4 border border-gray-100">
                 <Row gutter={[16, 16]} align="bottom">
                     {/* SEARCH */}
-                    <Col xs={24} sm={24} md={12} lg={8}>
+                    <Col xs={24} md={14} lg={16}>
                         <Text strong className="block mb-1">Tìm kiếm</Text>
                         <Input
                             placeholder="Mã phiếu, tên hoặc SĐT khách hàng..."
                             prefix={<SearchOutlined />}
                             allowClear
-                            value={queryParams.keyword}
-                            onChange={(e) =>
-                                setQueryParams({ ...queryParams, keyword: e.target.value })
-                            }
-                            onPressEnter={handleSearch}
+                            value={keyword}
+                            style={{ borderRadius: '20px' }}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setKeyword(val);
+                                debounceSearch(val);
+                            }}
                         />
                     </Col>
 
                     {/* DATE RANGE */}
-                    <Col xs={24} sm={24} md={12} lg={8}>
+                    <Col xs={24} md={10} lg={8}>
                         <Text strong className="block mb-1">Khoảng thời gian</Text>
                         <RangePicker
                             className="w-full"
                             format="DD/MM/YYYY"
+                            style={{ borderRadius: '20px' }}
                             onChange={(dates) => {
-                                setQueryParams({
+                                const newParams = {
                                     ...queryParams,
+                                    page: 1,
                                     dateFrom: dates
                                         ? dates[0].format('YYYY-MM-DD')
                                         : null,
                                     dateTo: dates
                                         ? dates[1].format('YYYY-MM-DD')
                                         : null
-                                });
+                                };
+                                setQueryParams(newParams);
+                                fetchInvoices(newParams);
                             }}
                         />
-                    </Col>
-
-                    {/* ACTION BUTTONS */}
-                    <Col xs={24} sm={24} md={24} lg={8}>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                            <Button
-                                type="primary"
-                                onClick={handleSearch}
-                                className="w-full sm:w-auto"
-                            >
-                                Lọc dữ liệu
-                            </Button>
-
-                            <Button
-                                onClick={handleReset}
-                                className="w-full sm:w-auto"
-                            >
-                                Reset
-                            </Button>
-                        </div>
                     </Col>
                 </Row>
             </div>

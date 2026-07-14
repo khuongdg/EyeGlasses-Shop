@@ -124,17 +124,19 @@ exports.updateCustomer = async (customerId, data) => {
 
 // DELETE /api/customers/:id
 exports.softDeleteCustomer = async (customerId) => {
-  const customer = await Customer.findByIdAndUpdate(
-    customerId,
-    { isActive: false },
-    { new: true }
-  );
-
+  const customer = await Customer.findById(customerId);
   if (!customer) {
     throw new Error('Không tìm thấy khách hàng');
   }
 
-  return customer;
+  if (customer.isActive) {
+    customer.isActive = false;
+    await customer.save();
+    return customer;
+  } else {
+    await Customer.deleteOne({ _id: customerId });
+    return { message: 'Khách hàng đã được xoá vĩnh viễn khỏi hệ thống' };
+  }
 };
 
 // PATCH /api/customers/:id/restore

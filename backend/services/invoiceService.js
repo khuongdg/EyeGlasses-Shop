@@ -321,9 +321,15 @@ exports.getDebts = async ({ keyword, status, page = 1, limit = 10 }) => {
   const filter = { status: { $ne: 'CANCELLED' } };
   if (status) filter.status = status;
   if (keyword) {
+    const matchingInvoices = await Invoice.find({
+      invoiceCode: { $regex: keyword, $options: 'i' }
+    }).select('_id').lean();
+    const invoiceIds = matchingInvoices.map(inv => inv._id);
+
     filter.$or = [
       { customerName: { $regex: keyword, $options: 'i' } },
-      { customerPhone: { $regex: keyword, $options: 'i' } }
+      { customerPhone: { $regex: keyword, $options: 'i' } },
+      { invoiceId: { $in: invoiceIds } }
     ];
   }
 

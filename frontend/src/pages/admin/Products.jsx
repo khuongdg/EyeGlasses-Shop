@@ -16,9 +16,12 @@ import {
     Popconfirm,
     Grid,
     Upload,
-    Dropdown
+    Dropdown,
+    Typography,
+    Row,
+    Col
 } from 'antd';
-import { PlusOutlined, FileExcelOutlined, DownloadOutlined, BarChartOutlined, DownOutlined } from '@ant-design/icons';
+import { PlusOutlined, FileExcelOutlined, DownloadOutlined, BarChartOutlined, DownOutlined, SearchOutlined } from '@ant-design/icons';
 import debounce from 'lodash/debounce';
 
 import {
@@ -31,6 +34,8 @@ import {
     aiBulkImport,
     getAllVariants
 } from '../../services/productService';
+
+const { Title } = Typography;
 
 const Products = () => {
     const [products, setProducts] = useState([]);
@@ -606,13 +611,14 @@ const Products = () => {
             title: 'Hành động',
             render: (_, record) => (
                 <Space onClick={(e) => e.stopPropagation()}>
-                    <Button
-                        size="small"
-                        disabled={!record.isActive}
-                        onClick={() => openEdit(record)}
-                    >
-                        Sửa
-                    </Button>
+                    {record.isActive && (
+                        <Button
+                            size="small"
+                            onClick={() => openEdit(record)}
+                        >
+                            Sửa
+                        </Button>
+                    )}
 
                     {record.isActive ? (
                         <Button
@@ -635,8 +641,8 @@ const Products = () => {
                                 title="Bạn có chắc chắn muốn xoá vĩnh viễn sản phẩm này khỏi hệ thống?"
                                 onConfirm={() => handleDelete(record._id)}
                                 okButtonProps={{ danger: true }}
-                                okText="Xoá vĩnh viễn"
-                                cancelText="Huỷ bỏ"
+                                okText="Xoá"
+                                cancelText="Huỷ"
                             >
                                 <Button danger size="small">
                                     Xoá
@@ -687,41 +693,51 @@ const Products = () => {
 
     return (
         <div className="space-y-4">
-            {/* HEADER */}
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+            {/* TITLE ROW */}
+            <Row justify="space-between" align="middle" gutter={[16, 16]}>
+                <Col flex="auto">
+                    <Title level={3} style={{ margin: 0 }}>Quản lý sản phẩm</Title>
+                </Col>
+                <Col>
+                    <Space wrap>
+                        <Dropdown
+                            menu={{ items: excelMenuItems }}
+                            placement="bottomRight"
+                            trigger={['click']}
+                        >
+                            <Button
+                                loading={importLoading || exportLoading}
+                                className="text-white bg-[#1D6F42] border-[#1D6F42] 
+                                            hover:!bg-[#278950] hover:!text-white hover:!border-[#278950] 
+                                            focus:!bg-[#1D6F42] focus:!text-white focus:!border-[#1D6F42]
+                                            active:!bg-[#155231] 
+                                            transition-all duration-200"
+                            >
+                                Thao tác Excel <DownOutlined />
+                            </Button>
+                        </Dropdown>
+
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => setOpenModal(true)}
+                        >
+                            Thêm thủ công
+                        </Button>
+                    </Space>
+                </Col>
+            </Row>
+
+            {/* SEARCH ROW */}
+            <div className="mb-4">
                 <Input
                     placeholder="Tìm theo tên sản phẩm hoặc SKU"
+                    prefix={<SearchOutlined />}
                     allowClear
-                    className="w-full sm:w-80"
+                    className="w-full"
+                    style={{ borderRadius: '20px' }}
                     onChange={(e) => debounceSearch(e.target.value)}
                 />
-
-                <Space wrap>
-                    <Dropdown
-                        menu={{ items: excelMenuItems }}
-                        placement="bottomRight"
-                        trigger={['click']}
-                    >
-                        <Button
-                            loading={importLoading || exportLoading}
-                            className="text-white bg-[#1D6F42] border-[#1D6F42] 
-                                        hover:!bg-[#278950] hover:!text-white hover:!border-[#278950] 
-                                        focus:!bg-[#1D6F42] focus:!text-white focus:!border-[#1D6F42]
-                                        active:!bg-[#155231] 
-                                        transition-all duration-200"
-                        >
-                            Thao tác Excel <DownOutlined />
-                        </Button>
-                    </Dropdown>
-
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => setOpenModal(true)}
-                    >
-                        Thêm thủ công
-                    </Button>
-                </Space>
             </div>
 
             {/* TABLE */}
@@ -838,8 +854,8 @@ const Products = () => {
                                             title="Bạn có chắc chắn muốn xoá vĩnh viễn sản phẩm này khỏi hệ thống?"
                                             onConfirm={() => handleDelete(product._id)}
                                             okButtonProps={{ danger: true }}
-                                            okText="Xoá vĩnh viễn"
-                                            cancelText="Huỷ bỏ"
+                                            okText="Xoá"
+                                            cancelText="Huỷ"
                                         >
                                             <Button danger size="small">
                                                 Xoá
