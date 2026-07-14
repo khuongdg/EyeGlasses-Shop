@@ -19,13 +19,15 @@ import {
     Typography,
     DatePicker,
     Grid,
-    Popconfirm
+    Popconfirm,
+    Badge
 } from 'antd';
-import { PlusOutlined, DeleteOutlined, PrinterOutlined, SearchOutlined, BarcodeOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, PrinterOutlined, SearchOutlined, BarcodeOutlined, InboxOutlined, FolderOpenOutlined } from '@ant-design/icons';
 import PrintTemplate from '../../components/PrintTemplate';
 import ItemLabelTemplate from '../../components/ItemLabelTemplate';
 import InvoiceDetails from './InvoiceDetails';
 import LabelPreviewModal from './LabelPreviewModal';
+import SkuSelectModal from './SkuSelectModal';
 
 import { getInvoices, createInvoice, cancelInvoice } from '../../services/invoiceService';
 import { getCustomers } from '../../services/customerService';
@@ -44,6 +46,13 @@ const Invoices = () => {
     const [variantLoading, setVariantLoading] = useState(false);
     const [openModal, setOpenModal] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
+    const [isSkuModalOpen, setIsSkuModalOpen] = useState(false);
+    const [isDraftListModalOpen, setIsDraftListModalOpen] = useState(false);
+    const [showSaveDraftConfirm, setShowSaveDraftConfirm] = useState(false);
+    const [draftsList, setDraftsList] = useState([]);
+    const [isFormModified, setIsFormModified] = useState(false);
+    const [currentEditingDraftId, setCurrentEditingDraftId] = useState(null);
+    const [draftRestored, setDraftRestored] = useState(false);
 
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const componentRef = useRef();
@@ -135,7 +144,48 @@ const Invoices = () => {
         fetchInitialData();
         fetchInvoices(); // Load danh sách phiếu lần đầu
         fetchVariants();
+        
+        // Tải danh sách bản nháp ban đầu để hiển thị badge số lượng
+        const drafts = JSON.parse(localStorage.getItem('invoice_drafts') || '[]');
+        setDraftsList(drafts);
     }, []);
+
+    useEffect(() => {
+        // Chỉ khôi phục nháp khi danh sách sản phẩm (variants) đã tải xong vào state
+        if (variants && variants.length > 0 && !draftRestored) {
+            const wasOpen = localStorage.getItem('is_invoice_modal_open') === 'true';
+            if (wasOpen) {
+                const savedDraft = localStorage.getItem('current_invoice_draft');
+                console.log("=== RESTORING DRAFT FROM LOCALSTORAGE ===", savedDraft);
+                if (savedDraft) {
+                    try {
+                        const parsed = JSON.parse(savedDraft);
+                        console.log("=== PARSED DRAFT ===", parsed);
+                        form.setFieldsValue(parsed);
+                        setTimeout(() => {
+                            calculateTotals();
+                        }, 100);
+                    } catch (e) {
+                        console.error("Failed to parse current draft", e);
+                    }
+                }
+                const savedEditingId = localStorage.getItem('current_editing_draft_id');
+                if (savedEditingId) {
+                    setCurrentEditingDraftId(savedEditingId);
+                }
+                setIsFormModified(true);
+                setOpenModal(true);
+            }
+            setDraftRestored(true);
+        }
+    }, [variants, draftRestored]);
+
+    useEffect(() => {
+        if (isDraftListModalOpen) {
+            const drafts = JSON.parse(localStorage.getItem('invoice_drafts') || '[]');
+            setDraftsList(drafts);
+        }
+    }, [isDraftListModalOpen]);
 
     const handleTableChange = (newPagination) => {
         const newParams = {
@@ -212,17 +262,45 @@ const Invoices = () => {
             totalDiscount: totalDiscount,
             totalAmount: subTotal - totalDiscount
         });
+        saveActiveDraft();
+    };
+
+    const saveActiveDraft = () => {
+        const values = form.getFieldsValue(true);
+        console.log("=== SAVING ACTIVE DRAFT TO LOCALSTORAGE ===", values);
+        localStorage.setItem('current_invoice_draft', JSON.stringify(values));
+    };
+
+    const updateActiveDraft = () => {
+        setIsFormModified(true);
+        saveActiveDraft();
     };
     /* ================= CREATE ================= */
     const handleCreate = async () => {
         try {
             setSubmitLoading(true);
             const values = await form.validateFields();
+            if (!values.items || values.items.length === 0) {
+                message.error('Vui lòng chọn ít nhất 1 sản phẩm (SKU)');
+                return;
+            }
             await createInvoice(values);
 
             message.success('Tạo phiếu xuất kho thành công');
             setOpenModal(false);
             form.resetFields();
+
+            if (currentEditingDraftId) {
+                const drafts = JSON.parse(localStorage.getItem('invoice_drafts') || '[]');
+                const updated = drafts.filter(d => d.id !== currentEditingDraftId);
+                localStorage.setItem('invoice_drafts', JSON.stringify(updated));
+                setDraftsList(updated);
+            }
+
+            localStorage.removeItem('current_invoice_draft');
+            localStorage.removeItem('current_editing_draft_id');
+            localStorage.setItem('is_invoice_modal_open', 'false');
+            setCurrentEditingDraftId(null);
             fetchInvoices();
             fetchVariants();
         } catch (err) {
@@ -231,6 +309,146 @@ const Invoices = () => {
         } finally {
             setSubmitLoading(false);
         }
+    };
+
+    const handleCancelCreate = () => {
+        const values = form.getFieldsValue(true);
+        const hasContent = values.customerId || (values.items && values.items.length > 0) || values.note;
+
+        if (isFormModified && hasContent) {
+            setShowSaveDraftConfirm(true);
+        } else {
+            setOpenModal(false);
+            localStorage.removeItem('current_invoice_draft');
+            localStorage.removeItem('current_editing_draft_id');
+            localStorage.setItem('is_invoice_modal_open', 'false');
+            setCurrentEditingDraftId(null);
+            form.resetFields();
+        }
+    };
+
+    const handleSaveDraft = () => {
+        const values = form.getFieldsValue(true);
+        const drafts = JSON.parse(localStorage.getItem('invoice_drafts') || '[]');
+        let isUpdate = false;
+        
+        if (currentEditingDraftId) {
+            // Cập nhật đè lên bản nháp cũ
+            const draftIndex = drafts.findIndex(d => d.id === currentEditingDraftId);
+            if (draftIndex > -1) {
+                drafts[draftIndex] = {
+                    ...drafts[draftIndex],
+                    ...values,
+                    updatedAt: new Date().toLocaleString('vi-VN')
+                };
+                isUpdate = true;
+            } else {
+                const newDraft = {
+                    ...values,
+                    id: currentEditingDraftId,
+                    updatedAt: new Date().toLocaleString('vi-VN'),
+                };
+                drafts.unshift(newDraft);
+            }
+        } else {
+            // Tạo mới một bản nháp
+            const newDraft = {
+                ...values,
+                id: 'draft_' + Date.now(),
+                updatedAt: new Date().toLocaleString('vi-VN'),
+            };
+            drafts.unshift(newDraft);
+        }
+        
+        localStorage.setItem('invoice_drafts', JSON.stringify(drafts));
+        setDraftsList(drafts);
+        
+        if (isUpdate) {
+            message.success('Đã cập nhật bản lưu nháp');
+        } else {
+            message.success('Đã lưu phiếu vào danh sách bản nháp');
+        }
+        
+        setShowSaveDraftConfirm(false);
+        setOpenModal(false);
+        setIsFormModified(false);
+        localStorage.removeItem('current_invoice_draft');
+        localStorage.removeItem('current_editing_draft_id');
+        localStorage.setItem('is_invoice_modal_open', 'false');
+        setCurrentEditingDraftId(null);
+        form.resetFields();
+    };
+
+    const handleDiscard = () => {
+        setShowSaveDraftConfirm(false);
+        setOpenModal(false);
+        setIsFormModified(false);
+        localStorage.removeItem('current_invoice_draft');
+        localStorage.removeItem('current_editing_draft_id');
+        localStorage.setItem('is_invoice_modal_open', 'false');
+        setCurrentEditingDraftId(null);
+        form.resetFields();
+        message.info('Đã hủy các thay đổi');
+    };
+
+    const handleEditDraft = (draft) => {
+        localStorage.setItem('current_invoice_draft', JSON.stringify(draft));
+        localStorage.setItem('current_editing_draft_id', draft.id);
+        localStorage.setItem('is_invoice_modal_open', 'true');
+        
+        form.resetFields();
+        form.setFieldsValue(draft);
+        setIsFormModified(false);
+        setCurrentEditingDraftId(draft.id);
+        
+        setTimeout(() => {
+            calculateTotals();
+        }, 100);
+
+        setOpenModal(true);
+        setIsDraftListModalOpen(false);
+    };
+
+    const handleDeleteDraft = (draftId) => {
+        const drafts = JSON.parse(localStorage.getItem('invoice_drafts') || '[]');
+        const updated = drafts.filter(d => d.id !== draftId);
+        localStorage.setItem('invoice_drafts', JSON.stringify(updated));
+        setDraftsList(updated);
+        message.success('Đã xóa bản nháp');
+    };
+
+    const handleSkuModalConfirm = (selectedIds) => {
+        const currentItems = form.getFieldValue('items') || [];
+        const existingItemsMap = {};
+        
+        currentItems.forEach(item => {
+            if (item && item.variantId) {
+                existingItemsMap[item.variantId] = item;
+            }
+        });
+
+        const updatedItems = selectedIds.map(id => {
+            if (existingItemsMap[id]) {
+                return existingItemsMap[id];
+            } else {
+                const v = variants.find(x => x._id === id);
+                return {
+                    variantId: v._id,
+                    sku: v?.sku,
+                    brand: v?.productId?.brand || 'N/A',
+                    originCountry: v?.productId?.originCountry || 'N/A',
+                    unit: v?.unit || 'Cây',
+                    price: v?.price || 0,
+                    quantity: 1,
+                    discountPercent: 0
+                };
+            }
+        });
+
+        form.setFieldsValue({ items: updatedItems });
+        calculateTotals();
+        updateActiveDraft();
+        setIsSkuModalOpen(false);
     };
 
     /* ================= CANCEL ================= */
@@ -268,6 +486,7 @@ const Invoices = () => {
 
             // Kích hoạt tính toán lại tổng số
             calculateTotals();
+            updateActiveDraft();
         }
     };
 
@@ -374,16 +593,29 @@ const Invoices = () => {
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <h2 className="text-xl font-semibold">Phiếu xuất kho</h2>
 
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={() => {
-                        form.resetFields();
-                        setOpenModal(true);
-                    }}
-                >
-                    Tạo phiếu
-                </Button>
+                <div className="flex gap-2">
+                    <Badge count={draftsList.length} size="small">
+                        <Button
+                            icon={<FolderOpenOutlined />}
+                            onClick={() => setIsDraftListModalOpen(true)}
+                            title="Danh sách phiếu nháp"
+                            className="flex items-center justify-center border-gray-300 hover:border-blue-500 hover:text-blue-500"
+                        />
+                    </Badge>
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => {
+                            form.resetFields();
+                            setIsFormModified(false);
+                            setOpenModal(true);
+                            localStorage.setItem('is_invoice_modal_open', 'true');
+                            localStorage.setItem('current_invoice_draft', JSON.stringify(form.getFieldsValue(true)));
+                        }}
+                    >
+                        Tạo phiếu
+                    </Button>
+                </div>
             </div>
 
             {/* FILTER BAR */}
@@ -621,15 +853,18 @@ const Invoices = () => {
                 open={openModal}
                 onOk={handleCreate}
                 confirmLoading={submitLoading}
-                onCancel={() => setOpenModal(false)}
+                onCancel={handleCancelCreate}
                 width="100%"
                 style={{ maxWidth: 1100, top: 20 }}
             >
                 <Form
                     layout="vertical"
                     form={form}
-                    initialValues={{ items: [{}] }}
-                    onValuesChange={calculateTotals}
+                    initialValues={{ items: [] }}
+                    onValuesChange={(changedValues, allValues) => {
+                        calculateTotals();
+                        setIsFormModified(true);
+                    }}
                 >
                     {/* INFO KHÁCH HÀNG */}
                     <Row gutter={16}>
@@ -666,6 +901,7 @@ const Invoices = () => {
                                                 customerTaxCode: ''
                                             });
                                         }
+                                        updateActiveDraft();
                                     }}
                                 >
                                     {customers.map((c) => (
@@ -732,6 +968,7 @@ const Invoices = () => {
                                         } else {
                                             form.setFieldsValue({ staffCode: '', staffName: '' });
                                         }
+                                        updateActiveDraft();
                                     }}
                                     // Hiển thị danh sách kết hợp Mã - Tên
                                     options={staffs.map((s) => ({
@@ -765,128 +1002,158 @@ const Invoices = () => {
                         </Col>
                     </Row>
 
-                    <Divider style={{ margin: '12px 0' }} />
+                    <Divider style={{ marginTop: '4px', marginBottom: '12px' }}><Text strong className="text-blue-500">Danh sách sản phẩm</Text></Divider>
 
                     <div style={{ maxHeight: '42vh', overflowY: 'auto', paddingRight: '12px', paddingLeft: '4px' }} className="mb-4">
                         <Form.List name="items">
-                            {(fields, { add, remove }) => (
-                                <>
-                                    {fields.map(({ key, name, ...restField }) => (
-
-                                        <div
-                                            key={key}
-                                            className="border rounded-lg p-4 mb-4 bg-gray-50"
-                                        >
-                                            {/* Trường ẩn để giữ giá trị SKU gửi lên Backend */}
-
-                                            <Form.Item name={[name, 'sku']} hidden><Input /></Form.Item>
-                                            {/* Trường ẩn cho các thông tin snapshot khác nếu cần */}
-                                            {/* <Form.Item name={[name, 'brand']} hidden><Input /></Form.Item>
-                                            <Form.Item name={[name, 'unit']} hidden><Input /></Form.Item> */}
-                                            <Form.Item name={[name, 'originCountry']} hidden><Input /></Form.Item>
-                                            {/* Hàng 1: SKU */}
-                                            <Form.Item
-                                                {...restField}
-                                                label="Sản phẩm (SKU)"
-                                                name={[name, 'variantId']}
-                                                rules={[{ required: true }]}
+                            {(fields, { add, remove }) => {
+                                const hasFields = fields.length > 0;
+                                return (
+                                    <>
+                                        {!hasFields ? (
+                                            <div 
+                                                onClick={() => setIsSkuModalOpen(true)}
+                                                className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 hover:border-blue-500 rounded-xl bg-gray-50 hover:bg-blue-50/20 transition-all cursor-pointer group min-h-[160px]"
                                             >
-                                                <Select
-                                                    showSearch
-                                                    placeholder="Chọn SKU"
-                                                    onChange={(val) => handleProductChange(val, name)}
-                                                    filterOption={(input, option) =>
-                                                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                                    }
-                                                    options={variants.map(v => ({
-                                                        value: v._id,
-                                                        label: `${v.sku} - Tồn: ${v.inventory || 0}`
-                                                    }))}
-                                                />
-                                            </Form.Item>
-
-                                            {/* Hàng 2: Brand + Unit */}
-                                            <Row gutter={12}>
-                                                <Col xs={12}>
-                                                    <Form.Item label="Hãng" name={[name, 'brand']}>
-                                                        <Input disabled />
-                                                    </Form.Item>
-                                                </Col>
-                                                <Col xs={12}>
-                                                    <Form.Item label="Đvt" name={[name, 'unit']}>
-                                                        <Input disabled />
-                                                    </Form.Item>
-                                                </Col>
-                                            </Row>
-
-                                            {/* Hàng 3: Giá + SL */}
-                                            <Row gutter={12}>
-                                                <Col xs={12}>
-                                                    <Form.Item
-                                                        label="Đơn giá"
-                                                        name={[name, 'price']}
-                                                        getValueProps={(value) => ({
-                                                            value: value != null ? value.toLocaleString('en-US') : '',
-                                                        })}
-                                                    >
-                                                        <Input disabled />
-                                                    </Form.Item>
-                                                </Col>
-                                                <Col xs={12}>
-                                                    <Form.Item
-                                                        label="Số lượng"
-                                                        name={[name, 'quantity']}
-                                                        rules={[{ required: true }]}
-                                                    >
-                                                        <InputNumber min={1} className="w-full" />
-                                                    </Form.Item>
-                                                </Col>
-                                            </Row>
-
-                                            {/* Hàng 4: CK + Thanh toán */}
-                                            <Row gutter={12}>
-                                                <Col xs={12}>
-                                                    <Form.Item
-                                                        label="Chiết khấu (%)"
-                                                        name={[name, 'discountPercent']}
-                                                    >
-                                                        <InputNumber min={0} max={100} className="w-full" />
-                                                    </Form.Item>
-                                                </Col>
-
-                                                <Col xs={12} className="flex flex-col justify-end">
-                                                    <Form.Item
-                                                        label="Thanh toán"
-                                                    >
-                                                        <Text type="danger" strong>
-                                                            {calculateRowTotal(name).toLocaleString()}₫
-                                                        </Text>
-                                                    </Form.Item>
-                                                </Col>
-                                            </Row>
-
-                                            <div className="text-right mt-2" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0' }}>
-                                                <Button
-                                                    danger
-                                                    icon={<DeleteOutlined />}
-                                                    disabled={fields.length <= 1}
-                                                    onClick={() => {
-                                                        remove(name);
-                                                        calculateTotals();
-                                                    }}
-                                                >
-                                                    Xoá dòng
-                                                </Button>
+                                                <InboxOutlined className="text-4xl text-gray-400 group-hover:text-blue-500 transition-colors mb-2" />
+                                                <span className="text-base font-semibold text-gray-600 group-hover:text-blue-600 transition-colors">Thêm SKU</span>
+                                                <span className="text-xs text-gray-400 mt-1">Tìm kiếm và chọn một hoặc nhiều sản phẩm (SKU)</span>
                                             </div>
+                                        ) : (
+                                            <>
+                                                {/* Table Header (desktop only) */}
+                                                <div className="hidden md:flex gap-3 px-4 py-2 bg-gray-100 font-semibold text-gray-600 border rounded-t-lg items-center text-sm">
+                                                    <div className="flex-[2]">Sản phẩm (SKU)</div>
+                                                    <div className="w-[120px] text-right">Đơn giá</div>
+                                                    <div className="w-[100px] text-center">Số lượng</div>
+                                                    <div className="w-[100px] text-center">Chiết khấu (%)</div>
+                                                    <div className="w-[120px] text-right">Thành tiền</div>
+                                                    <div className="w-[40px]"></div>
+                                                </div>
+
+                                                <div className="border border-t-0 rounded-b-lg divide-y bg-white">
+                                                    {fields.map(({ key, name, ...restField }) => (
+                                                        <div key={key} className="flex flex-col md:flex-row gap-3 items-stretch md:items-center px-4 py-3 hover:bg-gray-50/50">
+                                                            {/* Cột 1: Sản phẩm (SKU) */}
+                                                            <div className="flex-[2] min-w-0">
+                                                                <span className="block md:hidden text-xs font-semibold text-gray-500 mb-1">Sản phẩm (SKU)</span>
+                                                                <Form.Item
+                                                                    {...restField}
+                                                                    name={[name, 'variantId']}
+                                                                    rules={[{ required: true, message: 'Chọn SKU' }]}
+                                                                    style={{ margin: 0 }}
+                                                                >
+                                                                    <Select
+                                                                        showSearch
+                                                                        placeholder="Chọn SKU"
+                                                                        onChange={(val) => handleProductChange(val, name)}
+                                                                        filterOption={(input, option) =>
+                                                                            (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                                                        }
+                                                                        options={variants.map(v => ({
+                                                                            value: v._id,
+                                                                            label: `${v.sku} - Tồn: ${v.inventory || 0}`
+                                                                        }))}
+                                                                        className="w-full"
+                                                                    />
+                                                                </Form.Item>
+                                                                <Form.Item name={[name, 'sku']} hidden><Input /></Form.Item>
+                                                                <Form.Item name={[name, 'brand']} hidden><Input /></Form.Item>
+                                                                <Form.Item name={[name, 'unit']} hidden><Input /></Form.Item>
+                                                                <Form.Item name={[name, 'originCountry']} hidden><Input /></Form.Item>
+                                                            </div>
+
+                                                            {/* Cột 2: Đơn giá */}
+                                                            <div className="w-full md:w-[120px]">
+                                                                <span className="block md:hidden text-xs font-semibold text-gray-500 mb-1">Đơn giá</span>
+                                                                <Form.Item
+                                                                    name={[name, 'price']}
+                                                                    style={{ margin: 0 }}
+                                                                    getValueProps={(value) => ({
+                                                                        value: value != null ? value.toLocaleString('en-US') : '',
+                                                                    })}
+                                                                >
+                                                                    <Input disabled className="text-right md:text-right font-medium text-gray-700 bg-gray-50" />
+                                                                </Form.Item>
+                                                            </div>
+
+                                                            {/* Cột 3: Số lượng */}
+                                                            <div className="w-full md:w-[100px]">
+                                                                <span className="block md:hidden text-xs font-semibold text-gray-500 mb-1">Số lượng</span>
+                                                                <Form.Item
+                                                                    name={[name, 'quantity']}
+                                                                    rules={[{ required: true, message: 'Nhập SL' }]}
+                                                                    style={{ margin: 0 }}
+                                                                >
+                                                                    <InputNumber min={1} className="w-full text-center" onChange={() => calculateTotals()} />
+                                                                </Form.Item>
+                                                            </div>
+
+                                                            {/* Cột 4: Chiết khấu (%) */}
+                                                            <div className="w-full md:w-[100px]">
+                                                                <span className="block md:hidden text-xs font-semibold text-gray-500 mb-1">Chiết khấu (%)</span>
+                                                                <Form.Item
+                                                                    name={[name, 'discountPercent']}
+                                                                    style={{ margin: 0 }}
+                                                                >
+                                                                    <InputNumber min={0} max={100} className="w-full text-center" onChange={() => calculateTotals()} />
+                                                                </Form.Item>
+                                                            </div>
+
+                                                            {/* Cột 5: Thanh toán */}
+                                                            <div className="w-full md:w-[120px] flex flex-col justify-center">
+                                                                <span className="block md:hidden text-xs font-semibold text-gray-500 mb-1">Thanh toán</span>
+                                                                <div className="text-right font-semibold text-red-500 text-sm">
+                                                                    {calculateRowTotal(name).toLocaleString()}₫
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Cột 6: Hành động */}
+                                                            <div className="w-full md:w-[40px] flex justify-end items-center">
+                                                                <Button
+                                                                    danger
+                                                                    type="text"
+                                                                    icon={<DeleteOutlined />}
+                                                                    onClick={() => {
+                                                                        remove(name);
+                                                                        calculateTotals();
+                                                                        updateActiveDraft();
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </>
+                                        )}
+
+                                        <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                                            <Button 
+                                                type="dashed" 
+                                                onClick={() => {
+                                                    add({ quantity: 1, discountPercent: 0 });
+                                                    calculateTotals();
+                                                    updateActiveDraft();
+                                                }} 
+                                                className="flex-1"
+                                                icon={<PlusOutlined />}
+                                            >
+                                                Thêm dòng sản phẩm
+                                            </Button>
+                                            {hasFields && (
+                                                <Button 
+                                                    type="primary"
+                                                    ghost
+                                                    icon={<InboxOutlined />}
+                                                    onClick={() => setIsSkuModalOpen(true)}
+                                                >
+                                                    Chọn SKU từ danh sách
+                                                </Button>
+                                            )}
                                         </div>
-                                    ))}
-
-                                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                        Thêm dòng sản phẩm
-                                    </Button>
-
-                                </>
-                            )}
+                                    </>
+                                );
+                            }}
                         </Form.List>
                     </div>
 
@@ -961,6 +1228,129 @@ const Invoices = () => {
                         </Row>
                     </div>
                 </Form>
+            </Modal>
+
+            <SkuSelectModal
+                open={isSkuModalOpen}
+                onClose={() => setIsSkuModalOpen(false)}
+                variants={variants}
+                onConfirm={handleSkuModalConfirm}
+                initialSelectedIds={(form.getFieldValue('items') || [])
+                    .filter(item => item && item.variantId)
+                    .map(item => item.variantId)
+                }
+            />
+
+            {/* Modal hỏi lưu nháp khi đóng modal tạo phiếu */}
+            <Modal
+                title={<span className="font-bold text-gray-800">Lưu bản nháp?</span>}
+                open={showSaveDraftConfirm}
+                onCancel={() => setShowSaveDraftConfirm(false)}
+                centered
+                footer={[
+                    <Button key="cancel" className="rounded-full animate-fade-in" onClick={() => setShowSaveDraftConfirm(false)}>
+                        Quay lại
+                    </Button>,
+                    <Button key="discard" danger className="rounded-full" onClick={handleDiscard}>
+                        Không lưu
+                    </Button>,
+                    <Button key="save" type="primary" className="rounded-full bg-blue-600" onClick={handleSaveDraft}>
+                        Lưu bản nháp
+                    </Button>
+                ]}
+            >
+                <div className="py-2">
+                    <p className="text-gray-600">Bạn có muốn lưu thông tin phiếu đang tạo này dưới dạng bản nháp để tiếp tục chỉnh sửa vào lần sau không?</p>
+                </div>
+            </Modal>
+
+            {/* Modal danh sách phiếu nháp */}
+            <Modal
+                title={<span className="font-bold text-gray-800">Danh sách phiếu nháp</span>}
+                open={isDraftListModalOpen}
+                onCancel={() => setIsDraftListModalOpen(false)}
+                width={850}
+                centered
+                footer={[
+                    <Button key="close" className="rounded-full" onClick={() => setIsDraftListModalOpen(false)}>
+                        Đóng
+                    </Button>
+                ]}
+            >
+                <div className="my-4">
+                    <Table
+                        rowKey="id"
+                        dataSource={draftsList}
+                        locale={{ emptyText: 'Chưa có phiếu nháp nào được lưu' }}
+                        scroll={{ x: 'max-content' }}
+                        columns={[
+                            {
+                                title: 'Thời gian lưu',
+                                dataIndex: 'updatedAt',
+                                key: 'updatedAt',
+                                width: 150,
+                                className: 'whitespace-nowrap',
+                                render: (v) => <span className="font-mono text-xs text-gray-500">{v}</span>
+                            },
+                            {
+                                title: 'Khách hàng',
+                                dataIndex: 'customerName',
+                                key: 'customerName',
+                                className: 'whitespace-nowrap',
+                                render: (name) => <span className="font-medium text-gray-800">{name || 'Chưa chọn'}</span>
+                            },
+                            {
+                                title: 'Nhân viên',
+                                dataIndex: 'staffName',
+                                key: 'staffName',
+                                className: 'whitespace-nowrap',
+                                render: (name) => <span className="text-gray-600">{name || 'Chưa chọn'}</span>
+                            },
+                            {
+                                title: 'Số sản phẩm',
+                                dataIndex: 'items',
+                                key: 'items',
+                                width: 120,
+                                className: 'whitespace-nowrap',
+                                render: (items) => <span>{(items || []).length} sản phẩm</span>
+                            },
+                            {
+                                title: 'Tạm tính',
+                                dataIndex: 'subTotal',
+                                key: 'subTotal',
+                                width: 130,
+                                className: 'whitespace-nowrap',
+                                render: (val) => <span className="font-semibold text-gray-800">{(val || 0).toLocaleString()}₫</span>
+                            },
+                            {
+                                title: 'Hành động',
+                                key: 'action',
+                                width: 150,
+                                align: 'center',
+                                className: 'whitespace-nowrap',
+                                render: (_, record) => (
+                                    <Space size="small">
+                                        <Button
+                                            type="primary"
+                                            size="small"
+                                            onClick={() => handleEditDraft(record)}
+                                        >
+                                            Sửa tiếp
+                                        </Button>
+                                        <Popconfirm
+                                            title="Xóa bản nháp?"
+                                            description="Hành động này không thể hoàn tác!"
+                                            onConfirm={() => handleDeleteDraft(record.id)}
+                                            okButtonProps={{ danger: true }}
+                                        >
+                                            <Button type="text" danger size="small" icon={<DeleteOutlined />} />
+                                        </Popconfirm>
+                                    </Space>
+                                )
+                            }
+                        ]}
+                    />
+                </div>
             </Modal>
         </div>
     );
