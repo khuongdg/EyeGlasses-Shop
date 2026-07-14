@@ -361,10 +361,10 @@ const Customer = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <div className="font-semibold text-base">
-                    {highlightText(customer.name, searchKeyword)}
+                    {customer.name}
                   </div>
                   <div className="text-sm text-gray-600">
-                    {highlightText(customer.phone, searchKeyword)}
+                    {customer.phone}
                   </div>
                 </div>
 

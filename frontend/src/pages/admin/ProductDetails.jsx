@@ -196,33 +196,29 @@ const ProductDetail = () => {
                 ← Quay lại
             </Button>
 
-            <Card
-                loading={loading}
-                title={
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                        <span className="text-lg font-semibold">
-                            {product.name}
-                        </span>
+            <Card loading={loading}>
+                {/* Header Row */}
+                <div className="flex flex-row justify-between items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+                    <span className="text-2xl font-bold text-gray-800">
+                        Mã: {product.name}
+                    </span>
 
-                        <Button
-                            type="primary"
-                            onClick={() => {
-                                form.setFieldsValue({
-                                    unit: 'Cây',
-                                    inventory: 0,
-                                    sku: '',
-                                    colorCode: '',
-                                    price: undefined
-                                });
-                                setOpen(true);
-                            }}
-                            className="w-full sm:w-auto"
-                        >
-                            + Thêm biến thể
-                        </Button>
-                    </div>
-                }
-            >
+                    <Button
+                        type="primary"
+                        onClick={() => {
+                            form.setFieldsValue({
+                                unit: 'Cây',
+                                inventory: 0,
+                                sku: '',
+                                colorCode: '',
+                                price: undefined
+                            });
+                            setOpen(true);
+                        }}
+                    >
+                        + Thêm biến thể
+                    </Button>
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <p><b>Thương hiệu:</b> {product.brand}</p>
