@@ -17,15 +17,24 @@ const Debts = () => {
     const [selectedDebt, setSelectedDebt] = useState(null);
     const [form] = Form.useForm();
 
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [total, setTotal] = useState(0);
+    const [totalRemaining, setTotalRemaining] = useState(0);
+    const [totalPaid, setTotalPaid] = useState(0);
+
     const screens = useBreakpoint();
     const isMobile = !screens.md;
 
     /* ================= FETCH DATA ================= */
-    const fetchDebts = async () => {
+    const fetchDebts = async (currentPage = page, currentPageSize = pageSize) => {
         setLoading(true);
         try {
-            const res = await getDebts(); // Thay bằng endpoint thật
+            const res = await getDebts({ page: currentPage, limit: currentPageSize });
             setDebts(res.data.data);
+            setTotal(res.data.total || 0);
+            setTotalRemaining(res.data.totalRemaining || 0);
+            setTotalPaid(res.data.totalPaid || 0);
         } catch (err) {
             message.error('Không thể tải danh sách công nợ');
         } finally {
@@ -34,8 +43,8 @@ const Debts = () => {
     };
 
     useEffect(() => {
-        fetchDebts();
-    }, []);
+        fetchDebts(page, pageSize);
+    }, [page, pageSize]);
 
     /* ================= HANDLERS ================= */
     const handlePayment = async (values) => {
@@ -161,7 +170,7 @@ const Debts = () => {
                         <Card variant="borderless" style={{ background: '#fff7e6' }}>
                             <Text type="secondary">Tổng công nợ chưa thu</Text>
                             <Title level={4} style={{ margin: 0, color: '#fa8c16' }}>
-                                {(Array.isArray(debts) ? debts : []).reduce((sum, d) => sum + (d.remainingAmount || 0), 0).toLocaleString()}₫
+                                {totalRemaining.toLocaleString()}₫
                             </Title>
                         </Card>
                     </Col>
@@ -169,7 +178,7 @@ const Debts = () => {
                         <Card variant="borderless" style={{ background: '#f6ffed' }}>
                             <Text type="secondary">Tổng công nợ đã thu</Text>
                             <Title level={4} style={{ margin: 0, color: '#52c41a' }}>
-                                {(Array.isArray(debts) ? debts : []).reduce((sum, d) => sum + (d.paidAmount || 0), 0).toLocaleString()}₫
+                                {totalPaid.toLocaleString()}₫
                             </Title>
                         </Card>
                     </Col>
@@ -182,7 +191,16 @@ const Debts = () => {
                     columns={columns}
                     rowKey="_id"
                     loading={loading}
-                    pagination={{ pageSize: 10 }}
+                    pagination={{
+                        current: page,
+                        pageSize: pageSize,
+                        total: total,
+                        showSizeChanger: true,
+                        onChange: (p, ps) => {
+                            setPage(p);
+                            setPageSize(ps);
+                        }
+                    }}
                     scroll={{ x: 1100 }}
                 />
             ) : (
@@ -271,6 +289,27 @@ const Debts = () => {
                             </div>
                         );
                     })}
+
+                    {/* Mobile Pagination */}
+                    <div className="flex justify-center gap-3 pt-4">
+                        <Button
+                            disabled={page === 1}
+                            onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                        >
+                            Trước
+                        </Button>
+
+                        <span className="self-center text-sm">
+                            Trang {page} / {Math.ceil(total / pageSize) || 1}
+                        </span>
+
+                        <Button
+                            disabled={page * pageSize >= total}
+                            onClick={() => setPage(prev => prev + 1)}
+                        >
+                            Sau
+                        </Button>
+                    </div>
                 </div>
             )}
 

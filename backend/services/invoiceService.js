@@ -328,15 +328,28 @@ exports.getDebts = async ({ keyword, status, page = 1, limit = 10 }) => {
   }
 
   const skip = (page - 1) * limit;
-  const [debts, total] = await Promise.all([
+  const [debts, total, stats] = await Promise.all([
     Debt.find(filter)
       .populate('invoiceId', 'invoiceCode createdAt')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .lean(),
-    Debt.countDocuments(filter)
+    Debt.countDocuments(filter),
+    Debt.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: null,
+          totalRemaining: { $sum: '$remainingAmount' },
+          totalPaid: { $sum: '$paidAmount' }
+        }
+      }
+    ])
   ]);
 
-  return { data: debts, total, page, limit };
+  const totalRemaining = stats[0]?.totalRemaining || 0;
+  const totalPaid = stats[0]?.totalPaid || 0;
+
+  return { data: debts, total, page, limit, totalRemaining, totalPaid };
 };

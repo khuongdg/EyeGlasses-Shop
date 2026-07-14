@@ -171,7 +171,7 @@ const PrintTemplate = React.forwardRef(({ data }, ref) => {
             <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '50px', textAlign: 'center' }}>
                 <div>
                     <p><b>Người lập phiếu</b></p>
-                    <p style={{ marginTop: '60px' }}>{data.staffName}</p>
+                    <p style={{ marginTop: '2px' }}>(Ký, họ tên)</p>
                 </div>
 
                 <div>

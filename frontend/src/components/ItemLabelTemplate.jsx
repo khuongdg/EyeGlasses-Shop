@@ -21,6 +21,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                                     <div className="price-info">
                                         <p className="store-title">{item.customerName || customerName || 'Undefined'}</p>
                                         <p className="sku-sub"><b>Mã hàng: {item.sku}</b></p>
+                                        <p className="print-brand"><b>Hãng: {item.brand || ''}</b></p>
                                         <p className="print-price">{Number(item.printPrice || item.price).toLocaleString()} VND</p>
                                     </div>
                                 </div>
@@ -29,7 +30,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                             <div className="label-body-bottom">
                                 <p><b>Công ty phân phối:</b> {companyInfo?.name}</p>
                                 <p><b>Địa chỉ:</b> {companyInfo?.address}</p>
-                                <p><b>NSX/NPP:</b> Dongguan Zhengyang Import and Export...</p>
+                                <p><b>NSX/NPP:</b> Danyang Dongjie Glasses Co., Ltd.</p>
                                 <p><b>Xuất xứ:</b> {item.originCountry || 'Không xác định'}</p>
                                 <p className="highlight-text">HÀNG CHÍNH HIỆU CÓ MÃ TEM TRÙNG MÃ SẢN PHẨM</p>
                                 <p className="usage-info"><b>TP:</b> Kim loại, nhựa. <b>HDSD:</b> Dùng để đeo mắt. <b>Bảo quản:</b> Đựng trong hộp kính. Tránh nhiệt độ cao, hoá chất (Acetone, alcol,...).</p>
@@ -112,13 +113,23 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                     .mini-text-head { font-size: 4pt; margin: 0;}
                     .mini-text-head_code { font-size: 7pt; margin: 0;}
                     .mini-text { font-size: 6pt; margin: 0; font-weight: bold; }
-                    .store-title { font-size: 5pt; font-weight: bold; margin: 0; }
+                    .store-title { font-size: 5pt; font-weight: bold; margin: 0; line-height: 1; }
                     
                     .main-content { display: flex; align-items: center; justify-content: space-between; }
                     .qr-code-img { width: 21mm; height: 21mm; object-fit: contain; image-rendering: pixelated; image-rendering: crisp-edges; position: relative; top: 0.5mm; }
-                    .price-info { text-align: right; flex-grow: 1; margin-top: 12mm;}
-                    .sku-sub { font-size: 4pt; margin: 0; }
-                    .print-price { font-size: 9pt; font-weight: bold; margin: 0; color: #000; }
+                    .price-info {
+                        text-align: right;
+                        flex-grow: 1;
+                        margin-top: 12mm;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: flex-end;
+                        justify-content: flex-end;
+                        gap: 0.3mm;
+                    }
+                    .sku-sub { font-size: 4pt; margin: 0; line-height: 1; }
+                    .print-brand { font-size: 4pt; font-weight: bold; margin: 0; line-height: 1; }
+                    .print-price { font-size: 8pt; font-weight: bold; margin: 0; color: #000; line-height: 1; }
 
                     .label-body-bottom p { 
                         margin: 0; 
