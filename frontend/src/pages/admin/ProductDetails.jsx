@@ -200,7 +200,7 @@ const ProductDetail = () => {
                 {/* Header Row */}
                 <div className="flex flex-row justify-between items-center gap-3 mb-6 pb-4 border-b border-gray-100">
                     <span className="text-2xl font-bold text-gray-800">
-                        Mã: {product.name}
+                        {product.name}
                     </span>
 
                     <Button
