@@ -384,7 +384,18 @@ const ProductDetail = () => {
                 width="90%"
                 style={{ maxWidth: 600 }}
             >
-                <Form form={form} layout="vertical">
+                <Form 
+                    form={form} 
+                    layout="vertical"
+                    onValuesChange={(changedValues) => {
+                        if ('colorCode' in changedValues) {
+                            const color = (changedValues.colorCode || '').trim().toUpperCase();
+                            form.setFieldsValue({ 
+                                sku: color ? `${product.name}_${color}` : '' 
+                            });
+                        }
+                    }}
+                >
                     <Form.Item label="SKU" name="sku">
                         <Input disabled />
                     </Form.Item>
