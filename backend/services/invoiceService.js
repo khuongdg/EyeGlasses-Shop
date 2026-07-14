@@ -143,7 +143,9 @@ exports.getInvoices = async ({
   dateTo,
   isSample
 }) => {
-  const filter = {};
+  const filter = {
+    isDraft: { $ne: true } // Không bao giờ hiển thị bản nháp trong danh sách phiếu
+  };
 
   // Lọc theo isSample (tem mẫu)
   if (isSample !== undefined) {
