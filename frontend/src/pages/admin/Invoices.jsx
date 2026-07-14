@@ -29,7 +29,7 @@ import InvoiceDetails from './InvoiceDetails';
 import LabelPreviewModal from './LabelPreviewModal';
 import SkuSelectModal from './SkuSelectModal';
 
-import { getInvoices, createInvoice, cancelInvoice } from '../../services/invoiceService';
+import { getInvoices, createInvoice, cancelInvoice, getDrafts, saveDraft, deleteDraftFromDB } from '../../services/invoiceService';
 import { getCustomers } from '../../services/customerService';
 import { getStaffs } from '../../services/staffService';
 import { getVariants } from '../../services/variantService';
@@ -145,9 +145,14 @@ const Invoices = () => {
         fetchInvoices(); // Load danh sách phiếu lần đầu
         fetchVariants();
         
-        // Tải danh sách bản nháp ban đầu để hiển thị badge số lượng
-        const drafts = JSON.parse(localStorage.getItem('invoice_drafts') || '[]');
-        setDraftsList(drafts);
+        // Tải danh sách bản nháp từ database
+        getDrafts().then(res => {
+            if (res?.data?.data) setDraftsList(res.data.data);
+        }).catch(() => {
+            // Fallback về localStorage nếu API lỗi
+            const drafts = JSON.parse(localStorage.getItem('invoice_drafts') || '[]');
+            setDraftsList(drafts);
+        });
     }, []);
 
     useEffect(() => {
@@ -182,8 +187,12 @@ const Invoices = () => {
 
     useEffect(() => {
         if (isDraftListModalOpen) {
-            const drafts = JSON.parse(localStorage.getItem('invoice_drafts') || '[]');
-            setDraftsList(drafts);
+            getDrafts().then(res => {
+                if (res?.data?.data) setDraftsList(res.data.data);
+            }).catch(() => {
+                const drafts = JSON.parse(localStorage.getItem('invoice_drafts') || '[]');
+                setDraftsList(drafts);
+            });
         }
     }, [isDraftListModalOpen]);
 
@@ -291,10 +300,10 @@ const Invoices = () => {
             form.resetFields();
 
             if (currentEditingDraftId) {
-                const drafts = JSON.parse(localStorage.getItem('invoice_drafts') || '[]');
-                const updated = drafts.filter(d => d.id !== currentEditingDraftId);
-                localStorage.setItem('invoice_drafts', JSON.stringify(updated));
-                setDraftsList(updated);
+                try {
+                    await deleteDraftFromDB(currentEditingDraftId);
+                } catch (_) { /* Bỏ qua nếu xóa nháp thất bại */ }
+                setDraftsList(prev => prev.filter(d => (d._id || d.id) !== currentEditingDraftId));
             }
 
             localStorage.removeItem('current_invoice_draft');
@@ -327,46 +336,36 @@ const Invoices = () => {
         }
     };
 
-    const handleSaveDraft = () => {
+    const handleSaveDraft = async () => {
         const values = form.getFieldsValue(true);
-        const drafts = JSON.parse(localStorage.getItem('invoice_drafts') || '[]');
-        let isUpdate = false;
+        const isUpdate = !!currentEditingDraftId;
         
-        if (currentEditingDraftId) {
-            // Cập nhật đè lên bản nháp cũ
-            const draftIndex = drafts.findIndex(d => d.id === currentEditingDraftId);
-            if (draftIndex > -1) {
-                drafts[draftIndex] = {
-                    ...drafts[draftIndex],
-                    ...values,
-                    updatedAt: new Date().toLocaleString('vi-VN')
-                };
-                isUpdate = true;
-            } else {
-                const newDraft = {
-                    ...values,
-                    id: currentEditingDraftId,
-                    updatedAt: new Date().toLocaleString('vi-VN'),
-                };
-                drafts.unshift(newDraft);
+        try {
+            const payload = { ...values };
+            if (isUpdate) payload.draftId = currentEditingDraftId;
+            
+            const res = await saveDraft(payload);
+            const savedDraft = res?.data?.data;
+            
+            // Cập nhật state danh sách nháp
+            if (savedDraft) {
+                if (isUpdate) {
+                    setDraftsList(prev => prev.map(d => (d._id === savedDraft._id ? savedDraft : d)));
+                } else {
+                    setDraftsList(prev => [savedDraft, ...prev]);
+                }
+                // Cập nhật ID nháp hiện tại sang DB ID
+                localStorage.setItem('current_editing_draft_id', savedDraft._id);
             }
-        } else {
-            // Tạo mới một bản nháp
-            const newDraft = {
-                ...values,
-                id: 'draft_' + Date.now(),
-                updatedAt: new Date().toLocaleString('vi-VN'),
-            };
-            drafts.unshift(newDraft);
-        }
-        
-        localStorage.setItem('invoice_drafts', JSON.stringify(drafts));
-        setDraftsList(drafts);
-        
-        if (isUpdate) {
-            message.success('Đã cập nhật bản lưu nháp');
-        } else {
-            message.success('Đã lưu phiếu vào danh sách bản nháp');
+            
+            if (isUpdate) {
+                message.success('Đã cập nhật bản lưu nháp');
+            } else {
+                message.success('Đã lưu phiếu vào danh sách bản nháp');
+            }
+        } catch (err) {
+            message.error('Lưu bản nháp thất bại');
+            console.error(err);
         }
         
         setShowSaveDraftConfirm(false);
@@ -392,14 +391,16 @@ const Invoices = () => {
     };
 
     const handleEditDraft = (draft) => {
+        // draft._id là MongoDB ObjectId, draft.id là localStorage ID cũ (nếu có)
+        const draftId = draft._id || draft.id;
         localStorage.setItem('current_invoice_draft', JSON.stringify(draft));
-        localStorage.setItem('current_editing_draft_id', draft.id);
+        localStorage.setItem('current_editing_draft_id', draftId);
         localStorage.setItem('is_invoice_modal_open', 'true');
         
         form.resetFields();
         form.setFieldsValue(draft);
         setIsFormModified(false);
-        setCurrentEditingDraftId(draft.id);
+        setCurrentEditingDraftId(draftId);
         
         setTimeout(() => {
             calculateTotals();
@@ -409,12 +410,15 @@ const Invoices = () => {
         setIsDraftListModalOpen(false);
     };
 
-    const handleDeleteDraft = (draftId) => {
-        const drafts = JSON.parse(localStorage.getItem('invoice_drafts') || '[]');
-        const updated = drafts.filter(d => d.id !== draftId);
-        localStorage.setItem('invoice_drafts', JSON.stringify(updated));
-        setDraftsList(updated);
-        message.success('Đã xóa bản nháp');
+    const handleDeleteDraft = async (draftId) => {
+        try {
+            await deleteDraftFromDB(draftId);
+            setDraftsList(prev => prev.filter(d => (d._id || d.id) !== draftId));
+            message.success('Đã xóa bản nháp');
+        } catch (err) {
+            message.error('Xóa bản nháp thất bại');
+            console.error(err);
+        }
     };
 
     const handleSkuModalConfirm = (selectedIds) => {
@@ -1024,7 +1028,7 @@ const Invoices = () => {
                                                 {/* Table Header (desktop only) */}
                                                 <div className="hidden md:flex gap-3 px-4 py-2 bg-gray-100 font-semibold text-gray-600 border rounded-t-lg items-center text-sm">
                                                     <div className="flex-[2]">Sản phẩm (SKU)</div>
-                                                    <div className="w-[120px] text-right">Đơn giá</div>
+                                                    <div className="w-[120px] text-center">Đơn giá</div>
                                                     <div className="w-[100px] text-center">Số lượng</div>
                                                     <div className="w-[100px] text-center">Chiết khấu (%)</div>
                                                     <div className="w-[120px] text-right">Thành tiền</div>
@@ -1073,7 +1077,7 @@ const Invoices = () => {
                                                                         value: value != null ? value.toLocaleString('en-US') : '',
                                                                     })}
                                                                 >
-                                                                    <Input disabled className="text-right md:text-right font-medium text-gray-700 bg-gray-50" />
+                                                                    <Input disabled className="text-right md:text-center font-medium text-gray-700 bg-gray-50" />
                                                                 </Form.Item>
                                                             </div>
 
@@ -1082,7 +1086,6 @@ const Invoices = () => {
                                                                 <span className="block md:hidden text-xs font-semibold text-gray-500 mb-1">Số lượng</span>
                                                                 <Form.Item
                                                                     name={[name, 'quantity']}
-                                                                    rules={[{ required: true, message: 'Nhập SL' }]}
                                                                     style={{ margin: 0 }}
                                                                 >
                                                                     <InputNumber min={1} className="w-full text-center" onChange={() => calculateTotals()} />
@@ -1279,7 +1282,7 @@ const Invoices = () => {
             >
                 <div className="my-4">
                     <Table
-                        rowKey="id"
+                        rowKey={record => record._id || record.id}
                         dataSource={draftsList}
                         locale={{ emptyText: 'Chưa có phiếu nháp nào được lưu' }}
                         scroll={{ x: 'max-content' }}
@@ -1290,7 +1293,15 @@ const Invoices = () => {
                                 key: 'updatedAt',
                                 width: 150,
                                 className: 'whitespace-nowrap',
-                                render: (v) => <span className="font-mono text-xs text-gray-500">{v}</span>
+                                render: (v) => {
+                                    if (!v) return <span className="text-gray-400">—</span>;
+                                    const d = new Date(v);
+                                    return (
+                                        <span className="font-mono text-xs text-gray-500">
+                                            {isNaN(d) ? v : d.toLocaleString('vi-VN')}
+                                        </span>
+                                    );
+                                }
                             },
                             {
                                 title: 'Khách hàng',
@@ -1340,7 +1351,7 @@ const Invoices = () => {
                                         <Popconfirm
                                             title="Xóa bản nháp?"
                                             description="Hành động này không thể hoàn tác!"
-                                            onConfirm={() => handleDeleteDraft(record.id)}
+                                            onConfirm={() => handleDeleteDraft(record._id || record.id)}
                                             okButtonProps={{ danger: true }}
                                         >
                                             <Button type="text" danger size="small" icon={<DeleteOutlined />} />

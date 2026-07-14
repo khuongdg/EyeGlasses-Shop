@@ -359,3 +359,77 @@ exports.getDebts = async ({ keyword, status, page = 1, limit = 10 }) => {
 
   return { data: debts, total, page, limit, totalRemaining, totalPaid };
 };
+/**
+ * Lưu bản nháp phiếu xuất kho lên DB
+ * Nếu draftId được truyền → cập nhật bản nháp cũ
+ * Nếu không → tạo bản nháp mới
+ */
+exports.saveDraft = async (payload) => {
+  const { draftId, ...draftData } = payload;
+
+  const draftFields = {
+    isDraft: true,
+    customerId: draftData.customerId || undefined,
+    customerName: draftData.customerName || '',
+    customerPhone: draftData.customerPhone || '',
+    customerAddress: draftData.customerAddress || '',
+    customerTaxCode: draftData.customerTaxCode || '',
+    staffId: draftData.staffId || undefined,
+    staffName: draftData.staffName || '',
+    items: (draftData.items || []).map(item => ({
+      variantId: item.variantId || undefined,
+      sku: item.sku || '',
+      productName: item.productName || '',
+      brand: item.brand || '',
+      originCountry: item.originCountry || '',
+      unit: item.unit || '',
+      price: item.price || 0,
+      quantity: item.quantity || 0,
+      discountPercent: item.discountPercent || 0,
+      rowTotal: item.rowTotal || 0,
+      customerName: item.customerName || ''
+    })),
+    totalQuantity: draftData.totalQuantity || 0,
+    subTotal: draftData.subTotal || 0,
+    totalDiscount: draftData.totalDiscount || 0,
+    totalAmount: draftData.totalAmount || 0,
+    paymentMethod: draftData.paymentMethod || undefined,
+    note: draftData.note || ''
+  };
+
+  if (draftId) {
+    // Cập nhật đè lên bản nháp cũ
+    const updated = await Invoice.findOneAndUpdate(
+      { _id: draftId, isDraft: true },
+      { $set: draftFields },
+      { new: true }
+    );
+    if (!updated) throw new Error('Không tìm thấy bản nháp để cập nhật.');
+    return updated;
+  } else {
+    // Tạo bản nháp mới
+    const newDraft = new Invoice(draftFields);
+    await newDraft.save();
+    return newDraft;
+  }
+};
+
+/**
+ * Lấy danh sách tất cả bản nháp
+ */
+exports.getDrafts = async () => {
+  return Invoice.find({ isDraft: true })
+    .populate('customerId', 'name phone address taxCode')
+    .populate('staffId', 'name staffCode')
+    .sort({ updatedAt: -1 })
+    .lean();
+};
+
+/**
+ * Xóa một bản nháp theo ID
+ */
+exports.deleteDraft = async (draftId) => {
+  const deleted = await Invoice.findOneAndDelete({ _id: draftId, isDraft: true });
+  if (!deleted) throw new Error('Không tìm thấy bản nháp để xóa.');
+  return deleted;
+};

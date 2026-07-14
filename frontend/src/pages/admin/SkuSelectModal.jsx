@@ -77,7 +77,7 @@ const SkuSelectModal = ({ open, onClose, variants = [], onConfirm, initialSelect
 
                 {/* Variants List */}
                 <div 
-                    style={{ maxHeight: '420px', overflowY: 'auto' }} 
+                    style={{ maxHeight: '420px', overflowY: 'auto', overflowX: 'auto' }} 
                     className="border border-gray-100 rounded-xl divide-y divide-gray-100 bg-white"
                 >
                     {filteredVariants.length === 0 ? (
@@ -92,7 +92,7 @@ const SkuSelectModal = ({ open, onClose, variants = [], onConfirm, initialSelect
                                 <div
                                     key={v._id}
                                     onClick={() => handleToggleSelect(v._id)}
-                                    className={`flex items-center justify-between p-3.5 hover:bg-gray-50/80 cursor-pointer transition-colors ${
+                                    className={`flex items-center justify-between p-3.5 hover:bg-gray-50/80 cursor-pointer transition-colors min-w-[500px] sm:min-w-0 ${
                                         isSelected ? 'bg-blue-50/20' : ''
                                     }`}
                                 >

@@ -2,24 +2,24 @@ const mongoose = require('mongoose');
 const invoiceConnection = require('../database/invoiceConnection');
 
 const InvoiceItemSchema = new mongoose.Schema({
-  variantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Variant', required: true },
-  sku: { type: String, required: true },
+  variantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Variant' },
+  sku: { type: String },
   productName: { type: String }, // Lưu để in phiếu
   brand: { type: String },       // Snapshot từ Product
   originCountry: { type: String }, // Snapshot từ Product
   unit: { type: String },        // Snapshot từ Variant
-  price: { type: Number, required: true },
-  quantity: { type: Number, required: true },
+  price: { type: Number },
+  quantity: { type: Number },
   discountPercent: { type: Number, default: 0 },
-  rowTotal: { type: Number, required: true }, // Thành tiền sau CK của dòng này
+  rowTotal: { type: Number }, // Thành tiền sau CK của dòng này
 
-  // TRƯỜNG MỚI: QR Code riêng cho sản phẩm trong phiếu này
+  // QR Code riêng cho sản phẩm trong phiếu này
   itemQrCode: { type: String },
   customerName: { type: String }
 }, { _id: false });
 
 const InvoiceSchema = new mongoose.Schema({
-  invoiceCode: { type: String, unique: true, index: true },
+  invoiceCode: { type: String, unique: true, sparse: true, index: true },
 
   // Thông tin Công ty (Snapshot từ Active Company để tạo QR)
   companyInfo: {
@@ -36,12 +36,12 @@ const InvoiceSchema = new mongoose.Schema({
   customerAddress: { type: String },
   customerTaxCode: { type: String },
 
-  staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff', required: true },
+  staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' },
   staffName: { type: String },
 
   items: [InvoiceItemSchema],
 
-  totalQuantity: { type: Number, required: true },
+  totalQuantity: { type: Number },
   subTotal: { type: Number },
   totalDiscount: { type: Number, default: 0 },
   totalAmount: { type: Number },
@@ -49,7 +49,10 @@ const InvoiceSchema = new mongoose.Schema({
   paymentMethod: { type: String, enum: ['CASH', 'TRANSFER', 'DEBT', 'NONE'] },
   note: { type: String },
   isActive: { type: Boolean, default: true },
-  isSample: { type: Boolean, default: false }
+  isSample: { type: Boolean, default: false },
+
+  // BẢN NHÁP: Không trừ kho, không sinh mã phiếu, không tạo công nợ
+  isDraft: { type: Boolean, default: false }
 }, { timestamps: true });
 
 module.exports = invoiceConnection.model('Invoice', InvoiceSchema);

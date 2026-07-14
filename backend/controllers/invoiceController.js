@@ -124,3 +124,38 @@ exports.payDebt = async (req, res) => {
     res.status(400).json({ success: false, message: error.message });
   }
 };
+
+exports.saveDraft = async (req, res) => {
+  try {
+    const draft = await invoiceService.saveDraft(req.body);
+    res.status(200).json({
+      success: true,
+      message: req.body.draftId ? 'Đã cập nhật bản nháp' : 'Đã lưu bản nháp mới',
+      data: draft
+    });
+  } catch (error) {
+    console.error('Save draft error:', error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+exports.getDrafts = async (req, res) => {
+  try {
+    const drafts = await invoiceService.getDrafts();
+    res.json({ success: true, data: drafts });
+  } catch (error) {
+    console.error('Get drafts error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.deleteDraft = async (req, res) => {
+  try {
+    const { draftId } = req.params;
+    await invoiceService.deleteDraft(draftId);
+    res.json({ success: true, message: 'Đã xóa bản nháp' });
+  } catch (error) {
+    console.error('Delete draft error:', error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
