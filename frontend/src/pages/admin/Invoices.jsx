@@ -33,7 +33,7 @@ import QrScannerModal from '../../components/QrScannerModal';
 import { getInvoices, createInvoice, cancelInvoice, getDrafts, saveDraft, deleteDraftFromDB, updateInvoiceAdminNote } from '../../services/invoiceService';
 import { getCustomers } from '../../services/customerService';
 import { getStaffs } from '../../services/staffService';
-import { getVariants } from '../../services/variantService';
+import { getVariants, getVariantBySku } from '../../services/variantService';
 const { Text, Title } = Typography;
 const { RangePicker } = DatePicker;
 
@@ -495,18 +495,25 @@ const Invoices = () => {
     };
 
     /* ================= QR CODE SCAN ================= */
-    const handleQrScanSuccess = (decodedText) => {
+    const handleQrScanSuccess = async (decodedText) => {
         if (!decodedText) return;
         
         let sku = decodedText.trim();
-        // Trích xuất "Mã hàng" từ chuỗi QR nhãn sản phẩm
+        // Trích xuất "Mã hàng" từ chuỗi QR nhãn sản phẩm đầy đủ
         const match = decodedText.match(/Mã hàng:\s*([^.\r\n]+)/i);
         if (match && match[1]) {
             sku = match[1].trim();
         }
         
-        // Tìm variant khớp với SKU quét được
-        const foundVariant = variants.find(v => v.sku === sku);
+        // Gọi API tìm trực tiếp theo SKU (không phụ thuộc vào mảng đã load, không lọc isActive)
+        let foundVariant = null;
+        try {
+            const res = await getVariantBySku(sku);
+            foundVariant = res.data.data;
+        } catch {
+            message.warning(`Không tìm thấy sản phẩm có mã SKU: ${sku}`);
+            return;
+        }
         
         if (!foundVariant) {
             message.warning(`Không tìm thấy sản phẩm có mã SKU: ${sku}`);

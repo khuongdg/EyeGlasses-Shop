@@ -161,3 +161,22 @@ exports.searchVariantsByPrice = async (req, res) => {
   }
 };
 
+// Tìm variant theo SKU chính xác (dùng cho quét QR)
+exports.getVariantBySku = async (req, res) => {
+  try {
+    const { sku } = req.query;
+    if (!sku) return res.status(400).json({ success: false, message: 'Thiếu SKU' });
+
+    const Variant = require('../models/Variant');
+    const variant = await Variant.findOne({ sku: sku.trim() })
+      .populate('productId', 'name brand originCountry');
+
+    if (!variant) {
+      return res.status(404).json({ success: false, message: `Không tìm thấy sản phẩm có mã SKU: ${sku}` });
+    }
+
+    res.json({ success: true, data: variant });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

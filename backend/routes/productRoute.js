@@ -82,6 +82,8 @@ router.post('/ai-import', productController.aiBulkImport);
 
 // Get all variants
 router.get('/variants', variantController.getAllVariants);
+// Tìm variant theo SKU chính xác (dùng cho quét QR - không lọc isActive để luôn tìm thấy)
+router.get('/variants/by-sku', variantController.getVariantBySku);
 
 /**
  * @swagger

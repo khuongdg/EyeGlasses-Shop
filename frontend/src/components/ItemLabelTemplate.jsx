@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }, ref) => {
+const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName, isMinimal = false }, ref) => {
     return (
         <div ref={ref} className="label-print-area">
             {items.map((item, index) => (
@@ -10,7 +10,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                         {/* Phần trên: 35mm */}
                         <div className="label-header">
                             <p className="mini-text-head_code">Mã hàng: {item.sku}</p>
-                            <p className="mini-text-head">{item.customerName || customerName}</p>
+                            <p className={`mini-text-head ${isMinimal ? 'invisible' : ''}`}>{item.customerName || customerName}</p>
                         </div>
 
                         {/* Phần dưới: 42mm */}
@@ -19,15 +19,15 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName }
                                 <div className="main-content">
                                     <img src={item.itemQrCode} alt="QR" className="qr-code-img" />
                                     <div className="price-info">
-                                        <p className="store-title">{item.customerName || customerName || 'Undefined'}</p>
+                                        <p className={`store-title ${isMinimal ? 'invisible' : ''}`}>{item.customerName || customerName || 'Undefined'}</p>
                                         <p className="sku-sub"><b>Mã hàng: {item.sku}</b></p>
-                                        <p className="print-brand"><b>Hãng: {item.brand || ''}</b></p>
-                                        <p className="print-price">{Number(item.printPrice || item.price).toLocaleString()} VND</p>
+                                        <p className={`print-brand ${isMinimal ? 'invisible' : ''}`}><b>Hãng: {item.brand || ''}</b></p>
+                                        <p className={`print-price ${isMinimal ? 'invisible' : ''}`}>{Number(item.printPrice || item.price).toLocaleString()} VND</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="label-body-bottom">
+                            <div className={`label-body-bottom ${isMinimal ? 'invisible' : ''}`}>
                                 <p><b>Công ty phân phối:</b> {companyInfo?.name}</p>
                                 <p><b>Địa chỉ:</b> {companyInfo?.address}</p>
                                 <p><b>NSX/NPP:</b> Danyang Dongjie Glasses Co., Ltd.</p>

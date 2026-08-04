@@ -45,3 +45,10 @@ export const restoreVariant = (variantId) => {
 export const searchVariants = (params = {}) => {
     return axiosClient.get('/variants/search', { params });
 };
+
+/**
+ * Tìm variant theo SKU chính xác (dùng cho quét QR)
+ */
+export const getVariantBySku = (sku) => {
+    return axiosClient.get('/products/variants/by-sku', { params: { sku } });
+};
