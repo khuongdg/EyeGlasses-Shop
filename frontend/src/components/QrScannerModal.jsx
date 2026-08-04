@@ -64,7 +64,14 @@ const QrScannerModal = ({ open, onClose, onScanSuccess }) => {
                     const size = Math.min(width, height) * 0.8; // Khung quét rộng hơn, không cần đưa quá sát
                     return { width: size, height: size };
                 },
-                aspectRatio: 1.0
+                videoConstraints: {
+                    facingMode: "environment",
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                },
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true // Sử dụng thư viện quét phần cứng của Chrome/HĐH giúp nhận diện nhanh gấp 5 lần kể cả khi mờ
+                }
             };
 
             setIsScanning(true);
