@@ -19,10 +19,14 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName, 
                                 <div className="main-content">
                                     <img src={item.itemQrCode} alt="QR" className="qr-code-img" />
                                     <div className="price-info">
-                                        <p className={`store-title ${isMinimal ? 'invisible' : ''}`}>{item.customerName || customerName || 'Undefined'}</p>
+                                        <p className="store-title">{item.customerName || customerName || 'Undefined'}</p>
                                         <p className="sku-sub"><b>Mã hàng: {item.sku}</b></p>
-                                        <p className={`print-brand ${isMinimal ? 'invisible' : ''}`}><b>Hãng: {item.brand || ''}</b></p>
-                                        <p className={`print-price ${isMinimal ? 'invisible' : ''}`}>{Number(item.printPrice || item.price).toLocaleString()} VND</p>
+                                        {isMinimal ? (
+                                            <p className="company-name"><b>Cty TNHH Mắt Kính Thuận Thiên Phát</b></p>
+                                        ) : (
+                                            <p className="print-brand"><b>Hãng: {item.brand || ''}</b></p>
+                                        )}
+                                        <p className="print-price">{Number(item.printPrice || item.price).toLocaleString()} VND</p>
                                     </div>
                                 </div>
                             </div>
@@ -128,6 +132,7 @@ const ItemLabelTemplate = React.forwardRef(({ items, companyInfo, customerName, 
                         gap: 0.3mm;
                     }
                     .sku-sub { font-size: 4pt; margin: 0; line-height: 1; }
+                    .company-name { font-size: 4pt; margin: 0; line-height: 1; color: #000; }
                     .print-brand { font-size: 4pt; font-weight: bold; margin: 0; line-height: 1; }
                     .print-price { font-size: 8pt; font-weight: bold; margin: 0; color: #000; line-height: 1; }
 
