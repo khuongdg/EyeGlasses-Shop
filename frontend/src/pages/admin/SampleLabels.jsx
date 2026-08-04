@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import QRCode from 'qrcode';
 import debounce from 'lodash/debounce';
 import { useReactToPrint } from 'react-to-print';
 import {
@@ -18,7 +19,9 @@ import {
     Typography,
     DatePicker,
     Grid,
-    Popconfirm
+    Popconfirm,
+    Dropdown,
+    Checkbox
 } from 'antd';
 import { PlusOutlined, DeleteOutlined, PrinterOutlined, SearchOutlined, BarcodeOutlined } from '@ant-design/icons';
 import ItemLabelTemplate from '../../components/ItemLabelTemplate';
@@ -43,6 +46,10 @@ const SampleLabels = () => {
     const [submitLoading, setSubmitLoading] = useState(false);
 
     const [selectedInvoice, setSelectedInvoice] = useState(null);
+    const [printMinimal, setPrintMinimal] = useState(false);
+    const [labelItems, setLabelItems] = useState([]);
+    const [pendingPrint, setPendingPrint] = useState(false);
+    const [selectedItemSkus, setSelectedItemSkus] = useState([]);
     const [openDetail, setOpenDetail] = useState(false);
     const [viewingInvoice, setViewingInvoice] = useState(null);
     const labelPrintRef = useRef();
@@ -54,6 +61,13 @@ const SampleLabels = () => {
         contentRef: labelPrintRef,
         pageStyle: `@page { size: 77mm 56mm; margin: 0; }`,
     });
+
+    useEffect(() => {
+        if (pendingPrint) {
+            handlePrintLabels();
+            setPendingPrint(false);
+        }
+    }, [pendingPrint, handlePrintLabels]);
 
     const [pagination, setPagination] = useState({
         current: 1,
@@ -162,12 +176,43 @@ const SampleLabels = () => {
         }
     };
 
-    const triggerPrint = (record) => {
-        setSelectedInvoice(record);
-        setTimeout(() => {
-            handlePrintLabels();
-        }, 500);
-    };
+    const triggerPrint = useCallback(async (record, isMinimal = false) => {
+        let invoiceToUse = record;
+
+        if (isMinimal) {
+            // Sinh QR mới cho từng item chỉ chứa đúng chuỗi SKU
+            const itemsWithSkuQr = await Promise.all(
+                (record.items || []).map(async (item) => {
+                    const skuQr = await QRCode.toDataURL(item.sku, {
+                        errorCorrectionLevel: 'L',
+                        margin: 1,
+                        width: 600,
+                        color: { dark: '#000000', light: '#FFFFFF' }
+                    });
+                    return { ...item, itemQrCode: skuQr };
+                })
+            );
+            invoiceToUse = { ...record, items: itemsWithSkuQr };
+        }
+
+        const flatItems = [];
+        (invoiceToUse.items || []).forEach((item) => {
+            const qty = Number(item.quantity) || 0;
+            for (let i = 0; i < qty; i++) {
+                flatItems.push({
+                    ...item,
+                    printPrice: item.price,
+                    customerName: item.customerName || invoiceToUse.customerName || 'Hàng mẫu',
+                    tempId: `${item.sku}-${i}`
+                });
+            }
+        });
+
+        setSelectedInvoice(invoiceToUse);
+        setPrintMinimal(isMinimal);
+        setLabelItems(flatItems);
+        setPendingPrint(true);
+    }, []);
 
     /* ================= LOGIC FORM TẠO PHIẾU ================= */
     const handleProductChange = (val, name) => {
@@ -300,15 +345,6 @@ const SampleLabels = () => {
             title: 'Hành động',
             render: (_, record) => (
                 <Space size="small">
-                    <Button
-                        icon={<BarcodeOutlined />}
-                        title="In danh sách tem"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            triggerPrint(record);
-                        }}
-                    />
-                    
                     {record.isActive && (
                         <Popconfirm
                             title="Xóa vĩnh viễn phiếu in tem mẫu?"
@@ -559,6 +595,8 @@ const SampleLabels = () => {
                     onRow={(record) => ({
                         onClick: () => {
                             setViewingInvoice(record);
+                            // Chọn tất cả mặc định khi mở modal
+                            setSelectedItemSkus((record.items || []).map(it => it.sku));
                             setOpenDetail(true);
                         },
                         style: { cursor: 'pointer' }
@@ -570,9 +608,10 @@ const SampleLabels = () => {
             <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
                 <ItemLabelTemplate
                     ref={labelPrintRef}
-                    items={getFlatLabelItems()}
+                    items={labelItems}
                     companyInfo={selectedInvoice?.companyInfo || company}
                     customerName={selectedInvoice?.customerName || 'Hàng mẫu'}
+                    isMinimal={printMinimal}
                 />
             </div>
 
@@ -580,9 +619,48 @@ const SampleLabels = () => {
             <Modal
                 title={`Chi tiết phiếu in tem mẫu: ${viewingInvoice?.invoiceCode}`}
                 open={openDetail}
-                onCancel={() => setOpenDetail(false)}
+                onCancel={() => {
+                    setOpenDetail(false);
+                    setSelectedItemSkus([]);
+                }}
                 footer={[
-                    <Button key="close" onClick={() => setOpenDetail(false)}>Đóng</Button>
+                    <Button key="close" onClick={() => { setOpenDetail(false); setSelectedItemSkus([]); }}>Đóng</Button>,
+                    viewingInvoice && (
+                        <Dropdown
+                            key="print"
+                            trigger={['click']}
+                            menu={{
+                                items: [
+                                    {
+                                        key: 'full',
+                                        icon: <BarcodeOutlined />,
+                                        label: 'In tem đầy đủ thông tin',
+                                        onClick: () => triggerPrint(
+                                            { ...viewingInvoice, items: (viewingInvoice.items || []).filter(it => selectedItemSkus.includes(it.sku)) },
+                                            false
+                                        )
+                                    },
+                                    {
+                                        key: 'minimal',
+                                        icon: <PrinterOutlined />,
+                                        label: 'In tem QR tối giản',
+                                        onClick: () => triggerPrint(
+                                            { ...viewingInvoice, items: (viewingInvoice.items || []).filter(it => selectedItemSkus.includes(it.sku)) },
+                                            true
+                                        )
+                                    }
+                                ]
+                            }}
+                        >
+                            <Button
+                                type="primary"
+                                icon={<PrinterOutlined />}
+                                disabled={selectedItemSkus.length === 0}
+                            >
+                                In tem ({selectedItemSkus.length}) ▾
+                            </Button>
+                        </Dropdown>
+                    )
                 ]}
                 width={750}
                 style={{ top: 20 }}
@@ -607,15 +685,53 @@ const SampleLabels = () => {
                         )}
 
                         <Divider style={{ margin: '16px 0' }} />
-                        <h4 className="font-semibold text-gray-700 mb-2">Danh sách sản phẩm in tem</h4>
+                        <div className="flex justify-between items-center mb-2">
+                            <h4 className="font-semibold text-gray-700 mb-0">Danh sách sản phẩm in tem</h4>
+                        </div>
                          <Table
                             dataSource={viewingInvoice.items}
                             pagination={false}
-                            rowKey={(record, idx) => record.variantId + record.sku + idx}
+                            rowKey={(record, idx) => record.sku + idx}
                             size="small"
                             bordered
                             scroll={{ y: '40vh' }}
                             columns={[
+                                {
+                                    title: (
+                                        <Checkbox
+                                            checked={
+                                                selectedItemSkus.length === (viewingInvoice?.items || []).length &&
+                                                (viewingInvoice?.items || []).length > 0
+                                            }
+                                            indeterminate={
+                                                selectedItemSkus.length > 0 &&
+                                                selectedItemSkus.length < (viewingInvoice?.items || []).length
+                                            }
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedItemSkus((viewingInvoice?.items || []).map(it => it.sku));
+                                                } else {
+                                                    setSelectedItemSkus([]);
+                                                }
+                                            }}
+                                        />
+                                    ),
+                                    key: 'select',
+                                    width: 48,
+                                    align: 'center',
+                                    render: (_, record) => (
+                                        <Checkbox
+                                            checked={selectedItemSkus.includes(record.sku)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedItemSkus(prev => [...prev, record.sku]);
+                                                } else {
+                                                    setSelectedItemSkus(prev => prev.filter(s => s !== record.sku));
+                                                }
+                                            }}
+                                        />
+                                    )
+                                },
                                 { title: 'Mã hàng (SKU)', dataIndex: 'sku' },
                                 { title: 'Thương hiệu', dataIndex: 'brand' },
                                 { title: 'ĐVT', dataIndex: 'unit' },
