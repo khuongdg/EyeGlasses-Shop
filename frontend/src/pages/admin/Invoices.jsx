@@ -1368,17 +1368,19 @@ const Invoices = () => {
                 open={showSaveDraftConfirm}
                 onCancel={() => setShowSaveDraftConfirm(false)}
                 centered
-                footer={[
-                    <Button key="cancel" className="rounded-full animate-fade-in" onClick={() => setShowSaveDraftConfirm(false)}>
-                        Quay lại
-                    </Button>,
-                    <Button key="discard" danger className="rounded-full" onClick={handleDiscard}>
-                        Không lưu
-                    </Button>,
-                    <Button key="save" type="primary" className="rounded-full bg-blue-600" onClick={handleSaveDraft}>
-                        Lưu bản nháp
-                    </Button>
-                ]}
+                footer={
+                    <div className="flex flex-col sm:flex-row justify-end gap-2">
+                        <Button className="rounded-full w-full sm:w-auto" onClick={() => setShowSaveDraftConfirm(false)}>
+                            Quay lại
+                        </Button>
+                        <Button danger className="rounded-full w-full sm:w-auto" onClick={handleDiscard}>
+                            Không lưu
+                        </Button>
+                        <Button type="primary" className="rounded-full bg-blue-600 hover:!bg-blue-700 w-full sm:w-auto border-none" onClick={handleSaveDraft}>
+                            Lưu bản nháp
+                        </Button>
+                    </div>
+                }
             >
                 <div className="py-2">
                     <p className="text-gray-600">Bạn có muốn lưu thông tin phiếu đang tạo này dưới dạng bản nháp để tiếp tục chỉnh sửa vào lần sau không?</p>
