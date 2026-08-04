@@ -159,3 +159,19 @@ exports.deleteDraft = async (req, res) => {
     res.status(400).json({ success: false, message: error.message });
   }
 };
+
+exports.updateInvoiceAdminNote = async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    const { adminNote } = req.body;
+    const invoice = await invoiceService.updateInvoiceAdminNote(invoiceId, adminNote);
+    res.json({
+      success: true,
+      message: 'Cập nhật ghi chú thành công',
+      data: invoice
+    });
+  } catch (error) {
+    console.error('Update invoice adminNote error:', error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+};

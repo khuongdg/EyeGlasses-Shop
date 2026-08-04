@@ -53,3 +53,10 @@ export const saveDraft = (data) => {
 export const deleteDraftFromDB = (draftId) => {
   return axiosClient.delete(`/invoices/drafts/${draftId}`);
 };
+
+/**
+ * Cập nhật ghi chú nội bộ (adminNote) của phiếu xuất kho
+ */
+export const updateInvoiceAdminNote = (invoiceId, adminNote) => {
+  return axiosClient.patch(`/invoices/${invoiceId}/admin-note`, { adminNote });
+};

@@ -48,6 +48,7 @@ const InvoiceSchema = new mongoose.Schema({
 
   paymentMethod: { type: String, enum: ['CASH', 'TRANSFER', 'DEBT', 'NONE'] },
   note: { type: String },
+  adminNote: { type: String, default: '' },
   isActive: { type: Boolean, default: true },
   isSample: { type: Boolean, default: false },
 

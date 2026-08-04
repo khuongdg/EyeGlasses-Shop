@@ -22,14 +22,15 @@ import {
     Popconfirm,
     Badge
 } from 'antd';
-import { PlusOutlined, DeleteOutlined, PrinterOutlined, SearchOutlined, BarcodeOutlined, InboxOutlined, FolderOpenOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, PrinterOutlined, SearchOutlined, BarcodeOutlined, InboxOutlined, FolderOpenOutlined, InfoCircleOutlined, CameraOutlined } from '@ant-design/icons';
 import PrintTemplate from '../../components/PrintTemplate';
 import ItemLabelTemplate from '../../components/ItemLabelTemplate';
 import InvoiceDetails from './InvoiceDetails';
 import LabelPreviewModal from './LabelPreviewModal';
 import SkuSelectModal from './SkuSelectModal';
+import QrScannerModal from '../../components/QrScannerModal';
 
-import { getInvoices, createInvoice, cancelInvoice, getDrafts, saveDraft, deleteDraftFromDB } from '../../services/invoiceService';
+import { getInvoices, createInvoice, cancelInvoice, getDrafts, saveDraft, deleteDraftFromDB, updateInvoiceAdminNote } from '../../services/invoiceService';
 import { getCustomers } from '../../services/customerService';
 import { getStaffs } from '../../services/staffService';
 import { getVariants } from '../../services/variantService';
@@ -71,6 +72,10 @@ const Invoices = () => {
 
     const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
     const [labelItems, setLabelItems] = useState([]);
+    const [adminNoteModalOpen, setAdminNoteModalOpen] = useState(false);
+    const [selectedInvoiceForNote, setSelectedInvoiceForNote] = useState(null);
+    const [adminNoteValue, setAdminNoteValue] = useState('');
+    const [isQrModalOpen, setIsQrModalOpen] = useState(false);
     const labelPrintRef = useRef();
 
     const handlePrintLabels = useReactToPrint({
@@ -473,6 +478,81 @@ const Invoices = () => {
         }
     };
 
+    /* ================= NOTE ================= */
+    const handleSaveAdminNote = async () => {
+        if (!selectedInvoiceForNote) return;
+        try {
+            setLoading(true);
+            await updateInvoiceAdminNote(selectedInvoiceForNote._id, adminNoteValue);
+            message.success('Cập nhật ghi chú nội bộ thành công');
+            setAdminNoteModalOpen(false);
+            fetchInvoices();
+        } catch (err) {
+            message.error(err.response?.data?.message || 'Cập nhật ghi chú thất bại');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    /* ================= QR CODE SCAN ================= */
+    const handleQrScanSuccess = (decodedText) => {
+        if (!decodedText) return;
+        
+        let sku = decodedText.trim();
+        // Trích xuất "Mã hàng" từ chuỗi QR nhãn sản phẩm
+        const match = decodedText.match(/Mã hàng:\s*([^.\r\n]+)/i);
+        if (match && match[1]) {
+            sku = match[1].trim();
+        }
+        
+        // Tìm variant khớp với SKU quét được
+        const foundVariant = variants.find(v => v.sku === sku);
+        
+        if (!foundVariant) {
+            message.warning(`Không tìm thấy sản phẩm có mã SKU: ${sku}`);
+            return;
+        }
+
+        // Lấy danh sách sản phẩm hiện tại từ form
+        const currentItems = form.getFieldValue('items') || [];
+        
+        // Kiểm tra xem sản phẩm đã tồn tại trong hóa đơn chưa
+        const existingIndex = currentItems.findIndex(item => item && item.variantId === foundVariant._id);
+        
+        if (existingIndex > -1) {
+            // Đã tồn tại -> tăng số lượng lên 1
+            const updatedItems = [...currentItems];
+            updatedItems[existingIndex] = {
+                ...updatedItems[existingIndex],
+                quantity: (updatedItems[existingIndex].quantity || 0) + 1
+            };
+            form.setFieldsValue({ items: updatedItems });
+            message.success(`Đã cộng dồn số lượng cho SKU: ${sku}`);
+        } else {
+            // Chưa tồn tại -> thêm dòng mới
+            const brand = foundVariant.productId?.brand || 'N/A';
+            const originCountry = foundVariant.productId?.originCountry || 'N/A';
+            const unit = foundVariant.unit || 'Cây';
+            
+            const newItem = {
+                variantId: foundVariant._id,
+                sku: foundVariant.sku,
+                brand: brand,
+                originCountry: originCountry,
+                unit: unit,
+                price: foundVariant.price,
+                quantity: 1,
+                discountPercent: 0
+            };
+            form.setFieldsValue({ items: [...currentItems, newItem] });
+            message.success(`Đã thêm sản phẩm: ${sku}`);
+        }
+
+        // Tính toán lại tổng tiền và cập nhật bản nháp
+        calculateTotals();
+        updateActiveDraft();
+    };
+
     const handleProductChange = (val, name) => {
         const v = variants.find((x) => x._id === val);
         if (v) {
@@ -510,17 +590,19 @@ const Invoices = () => {
 
     /* ================= TABLE ================= */
     const columns = [
-        { title: 'Mã phiếu', dataIndex: 'invoiceCode' },
-        { title: 'Khách hàng', render: (_, record) => record.customerId?.name || 'N/A' },
-        { title: 'Nhân viên', render: (_, record) => record.staffId?.name || 'N/A' },
+        { title: 'Mã phiếu', dataIndex: 'invoiceCode', className: 'whitespace-nowrap' },
+        { title: 'Khách hàng', className: 'whitespace-nowrap', render: (_, record) => record.customerId?.name || 'N/A' },
+        { title: 'Nhân viên', className: 'whitespace-nowrap', render: (_, record) => record.staffId?.name || 'N/A' },
         {
             title: 'Tổng tiền',
             dataIndex: 'totalAmount',
+            className: 'whitespace-nowrap',
             render: (v) => v?.toLocaleString()
         },
         {
             title: 'Thanh toán',
             dataIndex: 'paymentMethod',
+            className: 'whitespace-nowrap',
             filters: [
                 { text: 'Tiền mặt', value: 'CASH' },
                 { text: 'Chuyển khoản', value: 'TRANSFER' },
@@ -535,6 +617,7 @@ const Invoices = () => {
         {
             title: 'Trạng thái',
             dataIndex: 'isActive',
+            className: 'whitespace-nowrap',
             filters: [
                 { text: 'Hoạt động', value: true },
                 { text: 'Không hoạt động', value: false },
@@ -545,6 +628,8 @@ const Invoices = () => {
         },
         {
             title: 'Hành động',
+            align: 'center',
+            className: 'whitespace-nowrap',
             render: (_, record) => (
                 <Space size="small">
                     {record.isActive && (
@@ -567,6 +652,17 @@ const Invoices = () => {
                                     setLabelItems(record.items);
                                     setViewingInvoice(record);
                                     setIsLabelModalOpen(true);
+                                }}
+                            />
+
+                            <Button
+                                icon={<InfoCircleOutlined />}
+                                title="Ghi chú phiếu xuất"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedInvoiceForNote(record);
+                                    setAdminNoteValue(record.adminNote || '');
+                                    setAdminNoteModalOpen(true);
                                 }}
                             />
                         </>
@@ -675,6 +771,7 @@ const Invoices = () => {
                     rowKey="_id"
                     columns={columns}
                     dataSource={invoices}
+                    scroll={{ x: 'max-content' }}
                     loading={loading}
                     pagination={{
                         current: pagination.current,
@@ -774,6 +871,16 @@ const Invoices = () => {
                                             setIsLabelModalOpen(true);
                                         }}
                                     />
+
+                                    <Button
+                                        size="small"
+                                        icon={<InfoCircleOutlined />}
+                                        onClick={() => {
+                                            setSelectedInvoiceForNote(invoice);
+                                            setAdminNoteValue(invoice.adminNote || '');
+                                            setAdminNoteModalOpen(true);
+                                        }}
+                                    />
                                 </div>
                             )}
                         </div>
@@ -858,6 +965,8 @@ const Invoices = () => {
                 onOk={handleCreate}
                 confirmLoading={submitLoading}
                 onCancel={handleCancelCreate}
+                okText="Tạo phiếu"
+                cancelText="Huỷ"
                 width="100%"
                 style={{ maxWidth: 1100, top: 20 }}
             >
@@ -1014,16 +1123,30 @@ const Invoices = () => {
                                 const hasFields = fields.length > 0;
                                 return (
                                     <>
-                                        {!hasFields ? (
-                                            <div 
-                                                onClick={() => setIsSkuModalOpen(true)}
-                                                className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 hover:border-blue-500 rounded-xl bg-gray-50 hover:bg-blue-50/20 transition-all cursor-pointer group min-h-[160px]"
-                                            >
-                                                <InboxOutlined className="text-4xl text-gray-400 group-hover:text-blue-500 transition-colors mb-2" />
-                                                <span className="text-base font-semibold text-gray-600 group-hover:text-blue-600 transition-colors">Thêm SKU</span>
-                                                <span className="text-xs text-gray-400 mt-1">Tìm kiếm và chọn một hoặc nhiều sản phẩm (SKU)</span>
-                                            </div>
-                                        ) : (
+                                         {!hasFields ? (
+                                             <Row gutter={[16, 16]}>
+                                                 <Col xs={24} sm={12}>
+                                                     <div 
+                                                         onClick={() => setIsSkuModalOpen(true)}
+                                                         className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 hover:border-blue-500 rounded-xl bg-gray-50 hover:bg-blue-50/20 transition-all cursor-pointer group min-h-[140px] text-center"
+                                                     >
+                                                         <InboxOutlined className="text-3xl text-gray-400 group-hover:text-blue-500 transition-colors mb-2" />
+                                                         <span className="text-sm font-semibold text-gray-600 group-hover:text-blue-600 transition-colors">Chọn SKU thủ công</span>
+                                                         <span className="text-xs text-gray-400 mt-1">Tìm kiếm và chọn một hoặc nhiều sản phẩm</span>
+                                                     </div>
+                                                 </Col>
+                                                 <Col xs={24} sm={12}>
+                                                     <div 
+                                                         onClick={() => setIsQrModalOpen(true)}
+                                                         className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 hover:border-blue-500 rounded-xl bg-gray-50 hover:bg-blue-50/20 transition-all cursor-pointer group min-h-[140px] text-center"
+                                                     >
+                                                         <CameraOutlined className="text-3xl text-gray-400 group-hover:text-blue-500 transition-colors mb-2" />
+                                                         <span className="text-sm font-semibold text-gray-600 group-hover:text-blue-600 transition-colors">Quét mã bằng Camera</span>
+                                                         <span className="text-xs text-gray-400 mt-1">Sử dụng Camera điện thoại để quét mã QR/Barcode</span>
+                                                     </div>
+                                                 </Col>
+                                             </Row>
+                                         ) : (
                                             <>
                                                 {/* Table Header (desktop only) */}
                                                 <div className="hidden md:flex gap-3 px-4 py-2 bg-gray-100 font-semibold text-gray-600 border rounded-t-lg items-center text-sm">
@@ -1127,38 +1250,35 @@ const Invoices = () => {
                                                         </div>
                                                     ))}
                                                 </div>
+
                                             </>
                                         )}
-
-                                        <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                                            <Button 
-                                                type="dashed" 
-                                                onClick={() => {
-                                                    add({ quantity: 1, discountPercent: 0 });
-                                                    calculateTotals();
-                                                    updateActiveDraft();
-                                                }} 
-                                                className="flex-1"
-                                                icon={<PlusOutlined />}
-                                            >
-                                                Thêm dòng sản phẩm
-                                            </Button>
-                                            {hasFields && (
-                                                <Button 
-                                                    type="primary"
-                                                    ghost
-                                                    icon={<InboxOutlined />}
-                                                    onClick={() => setIsSkuModalOpen(true)}
-                                                >
-                                                    Chọn SKU từ danh sách
-                                                </Button>
-                                            )}
-                                        </div>
                                     </>
                                 );
                             }}
                         </Form.List>
                     </div>
+
+                    {watchItems && watchItems.length > 0 && (
+                        <div className="mt-3 flex flex-col sm:flex-row gap-2 mb-4">
+                            <Button 
+                                type="dashed"
+                                icon={<InboxOutlined />}
+                                onClick={() => setIsSkuModalOpen(true)}
+                                className="flex-1"
+                            >
+                                Chọn SKU từ danh sách
+                            </Button>
+                            <Button 
+                                type="dashed"
+                                icon={<CameraOutlined />}
+                                onClick={() => setIsQrModalOpen(true)}
+                                className="flex-1"
+                            >
+                                Quét mã bằng Camera
+                            </Button>
+                        </div>
+                    )}
 
                     {/* SUMMARY SECTION */}
                     <div style={{ marginTop: 24, padding: '16px', background: '#fafafa', borderRadius: '8px' }}>
@@ -1220,17 +1340,15 @@ const Invoices = () => {
                                             </Title>
                                         </Col>
                                     </Row>
-
-                                    {/* Giữ nguyên các field hidden */}
-                                    <Form.Item name="totalQuantity" hidden><Input /></Form.Item>
-                                    <Form.Item name="subTotal" hidden><Input /></Form.Item>
-                                    <Form.Item name="totalDiscount" hidden><Input /></Form.Item>
-                                    <Form.Item name="totalAmount" hidden><Input /></Form.Item>
                                 </Space>
                             </Col>
                         </Row>
                     </div>
-                </Form>
+                     <Form.Item name="totalQuantity" hidden><Input /></Form.Item>
+                     <Form.Item name="subTotal" hidden><Input /></Form.Item>
+                     <Form.Item name="totalDiscount" hidden><Input /></Form.Item>
+                     <Form.Item name="totalAmount" hidden><Input /></Form.Item>
+                 </Form>
             </Modal>
 
             <SkuSelectModal
@@ -1298,7 +1416,7 @@ const Invoices = () => {
                                     const d = new Date(v);
                                     return (
                                         <span className="font-mono text-xs text-gray-500">
-                                            {isNaN(d) ? v : d.toLocaleString('vi-VN')}
+                                            {isNaN(d) ? v : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                         </span>
                                     );
                                 }
@@ -1363,6 +1481,31 @@ const Invoices = () => {
                     />
                 </div>
             </Modal>
+
+            <Modal
+                title={`Ghi chú nội bộ cho phiếu: ${selectedInvoiceForNote?.invoiceCode}`}
+                open={adminNoteModalOpen}
+                onCancel={() => setAdminNoteModalOpen(false)}
+                onOk={handleSaveAdminNote}
+                okText="Lưu ghi chú"
+                cancelText="Đóng"
+                centered
+            >
+                <div style={{ marginTop: '16px' }}>
+                    <Input.TextArea
+                        rows={4}
+                        placeholder="Nhập nội dung ghi chú nội bộ cho phiếu xuất kho này..."
+                        value={adminNoteValue}
+                        onChange={(e) => setAdminNoteValue(e.target.value)}
+                    />
+                </div>
+            </Modal>
+
+            <QrScannerModal
+                open={isQrModalOpen}
+                onClose={() => setIsQrModalOpen(false)}
+                onScanSuccess={handleQrScanSuccess}
+            />
         </div>
     );
 };

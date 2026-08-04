@@ -230,7 +230,7 @@ const ImportGoods = () => {
 
     const columns = [
         { title: 'Mã phiếu', dataIndex: 'importCode' },
-        { title: 'Ngày nhập', dataIndex: 'createdAt', render: (v) => new Date(v).toLocaleString('vi-VN') },
+        { title: 'Ngày nhập', dataIndex: 'createdAt', render: (v) => new Date(v).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) },
         { title: 'Nhân viên', dataIndex: 'staffName' },
         { title: 'Nhà cung cấp', dataIndex: 'supplier', render: (v) => v || '-' },
         { title: 'Tổng SL', dataIndex: 'totalQuantity', align: 'center' },
@@ -311,7 +311,7 @@ const ImportGoods = () => {
                                 {record.isActive ? <Tag color="green">Hợp lệ</Tag> : <Tag color="red">Đã hủy</Tag>}
                             </div>
                             <div className="text-sm mb-2">
-                                <div>Ngày nhập: {new Date(record.createdAt).toLocaleString('vi-VN')}</div>
+                                <div>Ngày nhập: {new Date(record.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
                                 <div>Nhân viên: {record.staffName}</div>
                                 <div>Nhà cung cấp: {record.supplier || '-'}</div>
                             </div>

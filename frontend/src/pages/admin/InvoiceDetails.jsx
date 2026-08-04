@@ -118,6 +118,7 @@ const InvoiceDetails = ({ open, onClose, data }) => {
         {
             title: 'Số lượng',
             dataIndex: 'quantity',
+            align: 'center',
             render: (v) => <Text strong>{v}</Text>
         },
         {
@@ -128,16 +129,21 @@ const InvoiceDetails = ({ open, onClose, data }) => {
         {
             title: 'Chiết khấu',
             dataIndex: 'discountPercent',
+            align: 'center',
             render: (v) => v > 0 ? <Tag color="red">-{v}%</Tag> : '0%'
         },
         {
             title: 'Thành tiền',
+            align: 'center',
             render: (_, record) => {
                 const total = record.quantity * record.price;
                 const discount = (total * (record.discountPercent || 0)) / 100;
-                return <Text type="danger">{(total - discount).toLocaleString()}</Text>
-            },
-            align: 'right'
+                return (
+                    <span className="text-red-500 font-semibold" style={{ fontSize: '14px' }}>
+                        {(total - discount).toLocaleString()}
+                    </span>
+                );
+            }
         },
     ];
 

@@ -81,7 +81,7 @@ const PrintTemplate = React.forwardRef(({ data }, ref) => {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                     <p>Mã phiếu: <b>{data.invoiceCode}</b></p>
-                    <p>Ngày: {new Date(data.createdAt).toLocaleString('vi-VN')}</p>
+                    <p>Ngày: {new Date(data.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
                 </div>
             </div>
 

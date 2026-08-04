@@ -435,3 +435,16 @@ exports.deleteDraft = async (draftId) => {
   if (!deleted) throw new Error('Không tìm thấy bản nháp để xóa.');
   return deleted;
 };
+
+/**
+ * Cập nhật ghi chú nội bộ (adminNote) của phiếu xuất kho
+ */
+exports.updateInvoiceAdminNote = async (invoiceId, adminNote) => {
+  const invoice = await Invoice.findByIdAndUpdate(
+    invoiceId,
+    { $set: { adminNote } },
+    { new: true }
+  );
+  if (!invoice) throw new Error('Không tìm thấy phiếu xuất kho.');
+  return invoice;
+};

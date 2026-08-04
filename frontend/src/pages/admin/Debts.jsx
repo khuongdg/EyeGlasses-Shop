@@ -4,7 +4,7 @@ import {
     Table, Tag, Button, Space, Modal, Form, Grid,
     InputNumber, Input, message, Progress, Typography, Timeline, Card, Row, Col
 } from 'antd';
-import { DollarOutlined, HistoryOutlined, CheckCircleOutlined, SearchOutlined } from '@ant-design/icons';
+import { DollarOutlined, HistoryOutlined, CheckCircleOutlined, SearchOutlined, CheckOutlined } from '@ant-design/icons';
 import { getDebts, payDebt } from '../../services/invoiceService';
 
 const { Text, Title } = Typography;
@@ -110,7 +110,29 @@ const Debts = () => {
                         <Progress
                             percent={percent}
                             size="small"
+                            strokeColor={{
+                                '0%': '#C6F8FF',
+                                '100%': '#6164FF',
+                            }}
                             status={record.status === 'COMPLETED' ? 'success' : 'active'}
+                            format={(percent) => {
+                                if (percent === 100) {
+                                    return (
+                                        <span style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            width: '16px',
+                                            height: '16px',
+                                            borderRadius: '50%',
+                                            background: 'linear-gradient(180deg, #C6F8FF 0%, #6164FF 100%)',
+                                        }}>
+                                            <CheckOutlined style={{ color: '#fff', fontSize: '8px', stroke: '#fff', strokeWidth: '100px' }} />
+                                        </span>
+                                    );
+                                }
+                                return `${percent}%`;
+                            }}
                         />
                         <Text type="secondary" style={{ fontSize: '11px' }}>
                             Đã trả: {record.paidAmount.toLocaleString()}₫
@@ -267,7 +289,29 @@ const Debts = () => {
                                     <Progress
                                         percent={percent}
                                         size="small"
+                                        strokeColor={{
+                                            '0%': '#C6F8FF',
+                                            '100%': '#6164FF',
+                                        }}
                                         status={record.status === 'COMPLETED' ? 'success' : 'active'}
+                                        format={(percent) => {
+                                            if (percent === 100) {
+                                                return (
+                                                    <span style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        width: '16px',
+                                                        height: '16px',
+                                                        borderRadius: '50%',
+                                                        background: 'linear-gradient(180deg, #C6F8FF 0%, #6164FF 100%)',
+                                                    }}>
+                                                        <CheckOutlined style={{ color: '#fff', fontSize: '8px', stroke: '#fff', strokeWidth: '100px' }} />
+                                                    </span>
+                                                );
+                                            }
+                                            return `${percent}%`;
+                                        }}
                                     />
                                     <Text type="secondary" style={{ fontSize: 12 }}>
                                         Đã trả: {record.paidAmount.toLocaleString()}₫
@@ -395,7 +439,7 @@ const Debts = () => {
                     {selectedDebt?.paymentHistory?.length > 0 ? (
                         selectedDebt.paymentHistory.map((h, i) => (
                             <Timeline.Item key={i} color="green">
-                                <Text strong>{new Date(h.paymentDate).toLocaleString()}</Text> <br />
+                                <Text strong>{new Date(h.paymentDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</Text> <br />
                                 <Text>Đã nộp: <b style={{ color: '#52c41a' }}>{h.amount.toLocaleString()}₫</b></Text> <br />
                                 <Text type="secondary">Nội dung: {h.note || 'Không có ghi chú'}</Text>
                             </Timeline.Item>

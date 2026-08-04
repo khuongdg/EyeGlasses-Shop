@@ -56,7 +56,8 @@ const SkuSelectModal = ({ open, onClose, variants = [], onConfirm, initialSelect
                     type="primary"
                     onClick={handleConfirm}
                     disabled={selectedIds.length === 0}
-                    className="rounded-full px-6 bg-gray-800 hover:bg-gray-700 text-white disabled:bg-gray-200 disabled:text-gray-400 border-none"
+                    className="rounded-full px-6 bg-gray-800 hover:!bg-gray-700 text-white hover:!text-white disabled:bg-gray-200 disabled:text-gray-400 border-none hover:!border-none hover:!shadow-none"
+                    style={{ border: 'none' }}
                 >
                     Xác nhận chọn ({selectedIds.length})
                 </Button>
