@@ -59,9 +59,9 @@ const QrScannerModal = ({ open, onClose, onScanSuccess }) => {
             html5QrCodeInstance.current = html5QrCode;
             
             const config = {
-                fps: 10,
+                fps: 20, // Tăng tốc độ quét (quét liên tục nhiều khung hình hơn trên giây)
                 qrbox: (width, height) => {
-                    const size = Math.min(width, height) * 0.65;
+                    const size = Math.min(width, height) * 0.8; // Khung quét rộng hơn, không cần đưa quá sát
                     return { width: size, height: size };
                 },
                 aspectRatio: 1.0
@@ -71,11 +71,7 @@ const QrScannerModal = ({ open, onClose, onScanSuccess }) => {
             setCameraPermission('granted');
 
             await html5QrCode.start(
-                { 
-                    facingMode: "environment",
-                    width: { min: 640, ideal: 1280, max: 1920 },
-                    height: { min: 480, ideal: 720, max: 1080 }
-                }, // Yêu cầu luồng video HD/Full HD giúp ảnh rõ nét và quét từ xa tốt hơn
+                { facingMode: "environment" }, // Ưu tiên camera sau
                 config,
                 (decodedText) => {
                     // Cơ chế chống trùng lặp: bỏ qua nếu trùng mã vừa quét trong vòng 2 giây
