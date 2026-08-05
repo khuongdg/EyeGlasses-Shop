@@ -194,6 +194,7 @@ const ImportDetails = ({ open, onClose, data }) => {
                         columns={columns}
                         pagination={false}
                         rowKey={(record, index) => record._id || index}
+                        scroll={{ x: 'max-content' }}
                         size="small"
                         bordered
                         summary={(pageData) => {

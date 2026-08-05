@@ -585,6 +585,7 @@ const SampleLabels = () => {
                     columns={columns}
                     dataSource={invoices}
                     loading={loading}
+                    scroll={{ x: 'max-content' }}
                     pagination={{
                         current: pagination.current,
                         pageSize: pagination.pageSize,
@@ -694,7 +695,7 @@ const SampleLabels = () => {
                             rowKey={(record, idx) => record.sku + idx}
                             size="small"
                             bordered
-                            scroll={{ y: '40vh' }}
+                            scroll={{ x: 'max-content', y: '40vh' }}
                             columns={[
                                 {
                                     title: (

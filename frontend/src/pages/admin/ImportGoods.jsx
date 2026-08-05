@@ -301,7 +301,7 @@ const ImportGoods = () => {
             </Card>
 
             {!isMobile ? (
-                <Table dataSource={imports} columns={columns} rowKey="_id" loading={loading} pagination={{ ...pagination, showSizeChanger: true, pageSizeOptions: ['10', '20', '50'] }} onChange={(p) => fetchImports(p.current, p.pageSize)} onRow={(record) => ({ onClick: () => { setViewingImport(record); setOpenDetail(true); }, style: { cursor: 'pointer' } })} />
+                <Table dataSource={imports} columns={columns} rowKey="_id" loading={loading} scroll={{ x: 'max-content' }} pagination={{ ...pagination, showSizeChanger: true, pageSizeOptions: ['10', '20', '50'] }} onChange={(p) => fetchImports(p.current, p.pageSize)} onRow={(record) => ({ onClick: () => { setViewingImport(record); setOpenDetail(true); }, style: { cursor: 'pointer' } })} />
             ) : (
                 <div className="space-y-3">
                     {imports.map((record) => (
@@ -366,46 +366,46 @@ const ImportGoods = () => {
                         {(fields, { add, remove }) => (
                             <>
                                 {fields.map(({ key, name, ...restField }) => (
-                                    <Row key={key} gutter={12} align="bottom" style={{ marginBottom: 8 }}>
-                                        <Col xs={24} md={6}>
+                                    <Row key={key} gutter={[12, 12]} align="middle" className="mb-3 p-3 bg-gray-50/70 rounded-lg border border-gray-200/80 md:bg-transparent md:p-0 md:border-0 md:mb-2">
+                                        <Col xs={24} sm={24} md={8}>
                                             <Form.Item name={[name, 'sku']} hidden><Input /></Form.Item>
                                             <Form.Item name={[name, 'originCountry']} hidden><Input /></Form.Item>
 
-                                            <Form.Item {...restField} name={[name, 'variantId']} label={name === 0 ? "Chọn sản phẩm (SKU)" : ""} rules={[{ required: true }]}>
+                                            <Form.Item {...restField} name={[name, 'variantId']} label={name === 0 || isMobile ? "Chọn sản phẩm (SKU)" : ""} rules={[{ required: true, message: 'Chọn sản phẩm' }]} style={{ marginBottom: 0 }}>
                                                 <Select
                                                     showSearch
                                                     placeholder="Tìm mã SKU hoặc tên"
                                                     filterOption={(input, option) => option.label.toLowerCase().includes(input.toLowerCase())}
                                                     onChange={(val) => handleImportProductChange(val, name)}
-                                                    options={variants.map(v => ({ value: v._id, label: `${v.sku} - ${v.productId?.name} - ${v.inventory}` }))}
+                                                    options={variants.map(v => ({ value: v._id, label: `${v.sku} - ${v.productId?.name} - Tồn: ${v.inventory}` }))}
+                                                    className="w-full"
                                                 />
                                             </Form.Item>
                                         </Col>
-                                        <Col xs={24} md={5}>
-                                            <Form.Item {...restField} name={[name, 'importPrice']} label={name === 0 ? "Giá vốn (VND)" : ""} rules={[{ required: true }]}>
+                                        <Col xs={24} sm={12} md={6}>
+                                            <Form.Item {...restField} name={[name, 'importPrice']} label={name === 0 || isMobile ? "Giá vốn (VND)" : ""} rules={[{ required: true, message: 'Nhập giá' }]} style={{ marginBottom: 0 }}>
                                                 <InputNumber
                                                     className="w-full"
                                                     min={0}
+                                                    placeholder="Giá vốn"
                                                     formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                                                     parser={v => v.replace(/\$\s?|(,*)/g, '')}
                                                     addonAfter="₫"
                                                 />
                                             </Form.Item>
                                         </Col>
-                                        <Col xs={12} md={3}>
-                                            <Form.Item {...restField} name={[name, 'quantity']} label={name === 0 ? "Số lượng" : ""} rules={[{ required: true }]}>
+                                        <Col xs={12} sm={6} md={4}>
+                                            <Form.Item {...restField} name={[name, 'quantity']} label={name === 0 || isMobile ? "Số lượng" : ""} rules={[{ required: true, message: 'Nhập SL' }]} style={{ marginBottom: 0 }}>
                                                 <InputNumber min={1} className="w-full" placeholder="SL" />
                                             </Form.Item>
                                         </Col>
-                                        <Col xs={12} md={4}>
-                                            <Form.Item label={name === 0 ? "Thành tiền (VND)" : ""}>
-                                                <div style={{ display: 'flex' }}>
-                                                    <Text strong color="blue" style={{ marginTop: '2px', flexGrow: 1, fontSize: '16px' }}>
+                                        <Col xs={12} sm={6} md={6}>
+                                            <Form.Item label={name === 0 || isMobile ? "Thành tiền" : ""} style={{ marginBottom: 0 }}>
+                                                <div className="flex items-center justify-between gap-1">
+                                                    <Text strong className="text-blue-600 text-sm md:text-base flex-1 truncate">
                                                         {((watchItems?.[name]?.quantity || 0) * (watchItems?.[name]?.importPrice || 0)).toLocaleString()}₫
                                                     </Text>
-                                                    <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} disabled={fields.length === 1}
-                                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}
-                                                    />
+                                                    <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} disabled={fields.length === 1} />
                                                 </div>
                                             </Form.Item>
                                         </Col>

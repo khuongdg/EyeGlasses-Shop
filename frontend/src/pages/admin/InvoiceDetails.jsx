@@ -39,11 +39,14 @@ const InvoiceDetails = ({ open, onClose, data }) => {
         worksheet.addRow([]); // Dòng trống
 
         // 3. Thông tin khách hàng & Giao dịch
+        const taxCode = data.customerTaxCode || data.taxCode || data.customerId?.taxCode || '';
+
         const infoRows = [
             ['Mã hóa đơn:', data.invoiceCode, '', 'Ngày tạo:', new Date(data.createdAt).toLocaleString('vi-VN')],
             ['Khách hàng:', data.customerName, '', 'Nhân viên:', data.staffName],
             ['Số điện thoại:', data.customerPhone, '', 'Thanh toán:', data.paymentMethod],
-            ['Địa chỉ:', data.customerAddress]
+            ['Địa chỉ:', data.customerAddress],
+            ['Mã số thuế:', taxCode]
         ];
         infoRows.forEach(row => {
             const r = worksheet.addRow(row);

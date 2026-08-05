@@ -61,7 +61,7 @@ const QrScannerModal = ({ open, onClose, onScanSuccess }) => {
             html5QrCodeInstance.current = html5QrCode;
             
             const config = {
-                fps: 20, // Tăng tốc độ quét (quét liên tục nhiều khung hình hơn trên giây)
+                fps: 18, // Tăng tốc độ quét (quét liên tục nhiều khung hình hơn trên giây)
                 qrbox: (width, height) => {
                     const size = Math.min(width, height) * 0.8; // Khung quét rộng hơn, không cần đưa quá sát
                     return { width: size, height: size };
