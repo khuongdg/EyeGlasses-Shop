@@ -8,8 +8,8 @@ exports.getAllStaffs = async (query = {}) => {
   const filter = {};
 
   // filter active / inactive
-  if (query.isActive !== undefined) {
-    filter.isActive = query.isActive === 'true';
+  if (query.isActive !== undefined && query.isActive !== 'undefined' && query.isActive !== '') {
+    filter.isActive = query.isActive === 'true' || query.isActive === true;
   }
 
   const [staffs, total] = await Promise.all([

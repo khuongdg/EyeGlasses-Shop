@@ -4,6 +4,7 @@ import {
   Table,
   Button,
   Input,
+  Select,
   Modal,
   Form,
   message,
@@ -34,6 +35,7 @@ const Customer = () => {
   const [editing, setEditing] = useState(null);
 
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   const [pagination, setPagination] = useState({
     current: 1,
@@ -51,15 +53,15 @@ const Customer = () => {
 
   /* ================= FETCH ================= */
   const fetchCustomers = async (
-    keyword = '',
+    keyword = searchKeyword,
     page = pagination.current,
-    pageSize = pagination.pageSize
+    pageSize = pagination.pageSize,
+    status = statusFilter
   ) => {
     setLoading(true);
     try {
-      const res = keyword
-        ? await searchCustomers({ keyword, page, limit: pageSize })
-        : await getCustomers({ page, limit: pageSize });
+      const isActiveVal = status === 'ACTIVE' ? true : (status === 'INACTIVE' ? false : undefined);
+      const res = await getCustomers({ keyword, page, limit: pageSize, isActive: isActiveVal });
 
       setCustomers(res.data.data);
       setPagination({
@@ -76,8 +78,8 @@ const Customer = () => {
   };
 
   useEffect(() => {
-    fetchCustomers('', 1, pagination.pageSize);
-  }, []);
+    fetchCustomers('', 1, pagination.pageSize, statusFilter);
+  }, [statusFilter]);
 
   /* ================= AI IMPORT LOGIC (WITH LOGS) ================= */
   const handleAIImport = (file) => {
@@ -289,14 +291,32 @@ const Customer = () => {
     <div className="space-y-4">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <Input
-          placeholder="Tìm theo tên / SĐT"
-          prefix={<SearchOutlined />}
-          allowClear
-          className="flex-1"
-          style={{ borderRadius: '20px' }}
-          onChange={(e) => debounceSearch(e.target.value)}
-        />
+        <div className="flex flex-1 flex-col sm:flex-row gap-3">
+          <Input
+            placeholder="Tìm theo tên / SĐT / Mã KH"
+            prefix={<SearchOutlined />}
+            allowClear
+            className="flex-1"
+            style={{ borderRadius: '20px' }}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSearchKeyword(val);
+              debounceSearch(val);
+            }}
+          />
+
+          <Select
+            className="w-full sm:w-44"
+            style={{ borderRadius: '20px' }}
+            value={statusFilter}
+            onChange={(val) => setStatusFilter(val)}
+            options={[
+              { value: 'ALL', label: 'Tất cả trạng thái' },
+              { value: 'ACTIVE', label: 'Hoạt động' },
+              { value: 'INACTIVE', label: 'Không hoạt động' }
+            ]}
+          />
+        </div>
 
         <Space wrap>
           {/* Nút Import thông minh */}

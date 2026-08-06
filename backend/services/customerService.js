@@ -6,20 +6,35 @@ const Customer = require('../models/Customer');
 exports.getAllCustomers = async (query = {}) => {
   const {
     page = 1,
-    limit = 10
+    limit = 10,
+    isActive,
+    keyword
   } = query;
 
   const pageNum = Number(page);
   const limitNum = Number(limit);
   const skip = (pageNum - 1) * limitNum;
 
+  const filter = {};
+  if (isActive !== undefined && isActive !== 'undefined' && isActive !== '') {
+    filter.isActive = isActive === 'true' || isActive === true;
+  }
+
+  if (keyword) {
+    filter.$or = [
+      { name: { $regex: keyword, $options: 'i' } },
+      { phone: { $regex: keyword, $options: 'i' } },
+      { customerCode: { $regex: keyword, $options: 'i' } }
+    ];
+  }
+
   const [customers, total] = await Promise.all([
-    Customer.find()
+    Customer.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum),
 
-    Customer.countDocuments()
+    Customer.countDocuments(filter)
   ]);
 
   return {

@@ -4,15 +4,30 @@ const mongoose = require('mongoose');
 const slugify = require('slugify');
 const { generateQRCode } = require('../utils/qrCode');
 
-exports.getAllProducts = async ({ page = 1, limit = 10 }) => {
-    const skip = (page - 1) * limit;
+exports.getAllProducts = async ({ page = 1, limit = 10, isActive, keyword }) => {
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const filter = {};
+    if (isActive !== undefined && isActive !== 'undefined' && isActive !== '') {
+        filter.isActive = isActive === 'true' || isActive === true;
+    }
+
+    if (keyword) {
+        filter.$or = [
+            { name: { $regex: keyword, $options: 'i' } },
+            { brand: { $regex: keyword, $options: 'i' } },
+            { originCountry: { $regex: keyword, $options: 'i' } }
+        ];
+    }
 
     const [data, total] = await Promise.all([
-        Product.find()
+        Product.find(filter)
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limit),
-        Product.countDocuments()
+            .limit(limitNum),
+        Product.countDocuments(filter)
     ]);
 
     return {

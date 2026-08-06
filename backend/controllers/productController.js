@@ -3,11 +3,13 @@ const productService = require('../services/productService');
 
 exports.getAllProducts = async (req, res) => {
     try {
-        const { page = 1, limit = 10 } = req.query;
+        const { page = 1, limit = 10, isActive, keyword } = req.query;
 
         const result = await productService.getAllProducts({
             page: Number(page),
-            limit: Number(limit)
+            limit: Number(limit),
+            isActive,
+            keyword
         });
 
         res.status(200).json({

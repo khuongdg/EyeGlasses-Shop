@@ -264,7 +264,7 @@ const ImportGoods = () => {
             <Card style={{ marginTop: 0, marginBottom: 16 }} size="small">
                 <Row gutter={[16, 16]} align="bottom">
                     {/* SEARCH */}
-                    <Col xs={24} md={14} lg={16}>
+                    <Col xs={24} sm={12} md={10} lg={12}>
                         <Text strong className="block mb-1">Tìm kiếm</Text>
                         <Input
                             placeholder="Mã phiếu nhập..."
@@ -281,7 +281,7 @@ const ImportGoods = () => {
                     </Col>
 
                     {/* DATE RANGE */}
-                    <Col xs={24} md={10} lg={8}>
+                    <Col xs={12} sm={6} md={8} lg={8}>
                         <Text strong className="block mb-1">Khoảng thời gian</Text>
                         <RangePicker
                             style={{ width: '100%', borderRadius: '20px' }}
@@ -297,6 +297,31 @@ const ImportGoods = () => {
                             }}
                         />
                     </Col>
+
+                    {/* TRẠNG THÁI */}
+                    <Col xs={12} sm={6} md={6} lg={4}>
+                        <Text strong className="block mb-1">Trạng thái</Text>
+                        <Select
+                            className="w-full"
+                            style={{ borderRadius: '20px' }}
+                            value={queryParams.isActive === true ? 'ACTIVE' : queryParams.isActive === false ? 'INACTIVE' : 'ALL'}
+                            onChange={(val) => {
+                                const newStatus = val === 'ACTIVE' ? true : (val === 'INACTIVE' ? false : null);
+                                const newParams = {
+                                    ...queryParams,
+                                    isActive: newStatus
+                                };
+                                setQueryParams(newParams);
+                                fetchImports(1, pagination.pageSize, newParams);
+                            }}
+                            options={[
+                                { value: 'ALL', label: 'Tất cả' },
+                                { value: 'ACTIVE', label: 'Hợp lệ' },
+                                { value: 'INACTIVE', label: 'Đã hủy' }
+                            ]}
+                        />
+                    </Col>
+                    
                 </Row>
             </Card>
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import debounce from 'lodash/debounce';
 import {
-    Table, Tag, Button, Space, Modal, Form, Grid,
+    Table, Tag, Button, Space, Modal, Form, Grid, Select,
     InputNumber, Input, message, Progress, Typography, Timeline, Card, Row, Col
 } from 'antd';
 import { DollarOutlined, HistoryOutlined, CheckCircleOutlined, SearchOutlined, CheckOutlined } from '@ant-design/icons';
@@ -24,15 +24,17 @@ const Debts = () => {
     const [totalRemaining, setTotalRemaining] = useState(0);
     const [totalPaid, setTotalPaid] = useState(0);
     const [keyword, setKeyword] = useState('');
+    const [statusFilter, setStatusFilter] = useState('ALL');
 
     const screens = useBreakpoint();
     const isMobile = !screens.md;
 
     /* ================= FETCH DATA ================= */
-    const fetchDebts = async (currentPage = page, currentPageSize = pageSize, searchKeyword = keyword) => {
+    const fetchDebts = async (currentPage = page, currentPageSize = pageSize, searchKeyword = keyword, currentStatus = statusFilter) => {
         setLoading(true);
         try {
-            const res = await getDebts({ page: currentPage, limit: currentPageSize, keyword: searchKeyword });
+            const statusVal = currentStatus === 'ALL' ? null : currentStatus;
+            const res = await getDebts({ page: currentPage, limit: currentPageSize, keyword: searchKeyword, status: statusVal });
             setDebts(res.data.data);
             setTotal(res.data.total || 0);
             setTotalRemaining(res.data.totalRemaining || 0);
@@ -45,8 +47,8 @@ const Debts = () => {
     };
 
     useEffect(() => {
-        fetchDebts(page, pageSize, keyword);
-    }, [page, pageSize]);
+        fetchDebts(page, pageSize, keyword, statusFilter);
+    }, [page, pageSize, statusFilter]);
 
     const debounceSearch = useRef(
         debounce((value) => {
@@ -222,7 +224,7 @@ const Debts = () => {
             </Card>
 
             {/* FILTER BAR */}
-            <div className="mb-4">
+            <div className="mb-4 flex flex-col sm:flex-row gap-3">
                 <Input
                     placeholder="Tìm theo mã phiếu, tên hoặc số điện thoại khách hàng..."
                     prefix={<SearchOutlined />}
@@ -233,7 +235,24 @@ const Debts = () => {
                         setKeyword(val);
                         debounceSearch(val);
                     }}
-                    style={{ width: '100%', borderRadius: '20px' }}
+                    className="flex-1"
+                    style={{ borderRadius: '20px' }}
+                />
+
+                <Select
+                    className="w-full sm:w-52"
+                    style={{ borderRadius: '20px' }}
+                    value={statusFilter}
+                    onChange={(val) => {
+                        setStatusFilter(val);
+                        setPage(1);
+                    }}
+                    options={[
+                        { value: 'ALL', label: 'Tất cả trạng thái' },
+                        { value: 'UNPAID', label: 'Chưa trả' },
+                        { value: 'PARTIAL', label: 'Trả một phần' },
+                        { value: 'COMPLETED', label: 'Hoàn thành' }
+                    ]}
                 />
             </div>
 

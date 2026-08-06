@@ -7,6 +7,7 @@ import {
     Table,
     Button,
     Input,
+    Select,
     InputNumber,
     Space,
     Modal,
@@ -46,6 +47,7 @@ const Products = () => {
     const [editingProduct, setEditingProduct] = useState(null);
 
     const [searchKeyword, setSearchKeyword] = useState('');
+    const [statusFilter, setStatusFilter] = useState('ALL');
 
     const [importLoading, setImportLoading] = useState(false);
     const [exportLoading, setExportLoading] = useState(false);
@@ -417,13 +419,11 @@ const Products = () => {
     };
 
     /* ================= FETCH ================= */
-    const fetchProducts = async (keyword, page, pageSize) => {
-        console.log('FETCH', { keyword, page, pageSize });
+    const fetchProducts = async (keyword = searchKeyword, page = pagination.current, pageSize = pagination.pageSize, status = statusFilter) => {
         setLoading(true);
         try {
-            const res = keyword
-                ? await searchProducts({ keyword, page, limit: pageSize })
-                : await getProducts({ page, limit: pageSize });
+            const isActiveVal = status === 'ACTIVE' ? true : (status === 'INACTIVE' ? false : undefined);
+            const res = await getProducts({ page, limit: pageSize, isActive: isActiveVal, keyword });
 
             setProducts(res.data.data || []);
             setPagination({
@@ -441,11 +441,9 @@ const Products = () => {
         }
     };
 
-
-
     useEffect(() => {
-        fetchProducts('', 1, pagination.pageSize);
-    }, []);
+        fetchProducts('', 1, pagination.pageSize, statusFilter);
+    }, [statusFilter]);
 
 
     /* ================= DEBOUNCE SEARCH ================= */
@@ -729,14 +727,26 @@ const Products = () => {
             </Row>
 
             {/* SEARCH ROW */}
-            <div className="mb-4">
+            <div className="mb-4 flex flex-col sm:flex-row gap-3">
                 <Input
-                    placeholder="Tìm theo tên sản phẩm hoặc SKU"
+                    placeholder="Tìm theo tên sản phẩm hoặc SKU..."
                     prefix={<SearchOutlined />}
                     allowClear
-                    className="w-full"
+                    className="flex-1"
                     style={{ borderRadius: '20px' }}
                     onChange={(e) => debounceSearch(e.target.value)}
+                />
+
+                <Select
+                    className="w-full sm:w-48"
+                    style={{ borderRadius: '20px' }}
+                    value={statusFilter}
+                    onChange={(val) => setStatusFilter(val)}
+                    options={[
+                        { value: 'ALL', label: 'Tất cả trạng thái' },
+                        { value: 'ACTIVE', label: 'Hoạt động' },
+                        { value: 'INACTIVE', label: 'Không hoạt động' }
+                    ]}
                 />
             </div>
 

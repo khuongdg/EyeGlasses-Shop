@@ -55,6 +55,7 @@ const Invoices = () => {
     const [variants, setVariants] = useState([]);
 
     const [loading, setLoading] = useState(false);
+    const [variantLoading, setVariantLoading] = useState(false);
     const [openModal, setOpenModal] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
     const [isSkuModalOpen, setIsSkuModalOpen] = useState(false);
@@ -105,6 +106,8 @@ const Invoices = () => {
         keyword: '',
         dateFrom: null,
         dateTo: null,
+        paymentMethod: null,
+        isActive: null,
         page: 1,
         limit: 10
     });
@@ -263,8 +266,17 @@ const Invoices = () => {
         }, 500)
     ).current;
 
-    const handleTableChange = (pag) => {
-        const newParams = { ...queryParams, page: pag.current, limit: pag.pageSize };
+    const handleTableChange = (pag, filters) => {
+        const paymentMethodVal = filters?.paymentMethod && filters.paymentMethod.length > 0 ? filters.paymentMethod[0] : null;
+        const isActiveVal = filters?.isActive && filters.isActive.length > 0 ? filters.isActive[0] : null;
+
+        const newParams = {
+            ...queryParams,
+            page: pag.current,
+            limit: pag.pageSize,
+            paymentMethod: paymentMethodVal,
+            isActive: isActiveVal
+        };
         setQueryParams(newParams);
         fetchInvoices(newParams);
     };
@@ -503,12 +515,6 @@ const Invoices = () => {
             title: 'Thanh toán',
             dataIndex: 'paymentMethod',
             className: 'whitespace-nowrap',
-            filters: [
-                { text: 'Tiền mặt', value: 'CASH' },
-                { text: 'Chuyển khoản', value: 'TRANSFER' },
-                { text: 'Công nợ', value: 'DEBT' },
-            ],
-            onFilter: (value, record) => record.paymentMethod === value,
             render: (method) => {
                 const labels = { CASH: 'Tiền mặt', TRANSFER: 'Chuyển khoản', DEBT: 'Công nợ' };
                 return labels[method] || method;
@@ -518,11 +524,6 @@ const Invoices = () => {
             title: 'Trạng thái',
             dataIndex: 'isActive',
             className: 'whitespace-nowrap',
-            filters: [
-                { text: 'Hoạt động', value: true },
-                { text: 'Không hoạt động', value: false },
-            ],
-            onFilter: (value, record) => record.isActive === value,
             render: (v) =>
                 v ? <Tag color="green">Hoạt động</Tag> : <Tag color="red">Không hoạt động</Tag>
         },

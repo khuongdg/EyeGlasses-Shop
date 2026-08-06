@@ -434,10 +434,10 @@ const SampleLabels = () => {
             </div>
 
             {/* FILTER BAR */}
-            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-4">
                 <Row gutter={[12, 12]} align="middle">
                     {/* SEARCH */}
-                    <Col xs={24} md={14} lg={16}>
+                    <Col xs={24} sm={12} md={11} lg={12}>
                         <Input
                             placeholder="Mã phiếu hoặc tên nhân viên..."
                             prefix={<SearchOutlined className="text-gray-400" />}
@@ -455,7 +455,7 @@ const SampleLabels = () => {
                     </Col>
 
                     {/* DATE RANGE */}
-                    <Col xs={24} md={10} lg={8}>
+                    <Col xs={12} sm={6} md={8} lg={8}>
                         <RangePicker
                             className="w-full"
                             placeholder={['Từ ngày', 'Đến ngày']}
@@ -474,6 +474,32 @@ const SampleLabels = () => {
                             size={isMobile ? 'small' : 'middle'}
                         />
                     </Col>
+
+                    {/* TRẠNG THÁI */}
+                    <Col xs={12} sm={6} md={5} lg={4}>
+                        <Select
+                            className="w-full"
+                            size={isMobile ? 'small' : 'middle'}
+                            style={{ borderRadius: '20px' }}
+                            value={queryParams.isActive === true ? 'ACTIVE' : queryParams.isActive === false ? 'INACTIVE' : 'ALL'}
+                            onChange={(val) => {
+                                const newStatus = val === 'ACTIVE' ? true : (val === 'INACTIVE' ? false : null);
+                                const newParams = {
+                                    ...queryParams,
+                                    page: 1,
+                                    isActive: newStatus
+                                };
+                                setQueryParams(newParams);
+                                fetchInvoices(newParams);
+                            }}
+                            options={[
+                                { value: 'ALL', label: 'Tất cả trạng thái' },
+                                { value: 'ACTIVE', label: 'Hoạt động' },
+                                { value: 'INACTIVE', label: 'Đã hủy' }
+                            ]}
+                        />
+                    </Col>
+                    
                 </Row>
             </div>
 

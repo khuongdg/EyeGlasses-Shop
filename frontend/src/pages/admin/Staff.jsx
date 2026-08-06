@@ -32,6 +32,7 @@ const Staff = () => {
     const [editing, setEditing] = useState(null);
 
     const [searchKeyword, setSearchKeyword] = useState('');
+    const [statusFilter, setStatusFilter] = useState('ALL');
 
     const [pagination, setPagination] = useState({
         current: 1,
@@ -46,24 +47,25 @@ const Staff = () => {
 
     /* ================= FETCH ================= */
     const fetchStaffs = async ({
-        keyword = '',
+        keyword = searchKeyword,
         page = pagination.current,
         pageSize = pagination.pageSize,
-        isActive
+        status = statusFilter
     } = {}) => {
         setLoading(true);
         try {
+            const isActiveVal = status === 'ACTIVE' ? true : (status === 'INACTIVE' ? false : undefined);
             const res = keyword
                 ? await searchStaffs({
                     keyword,
                     page,
                     limit: pageSize,
-                    isActive
+                    isActive: isActiveVal
                 })
                 : await getStaffs({
                     page,
                     limit: pageSize,
-                    isActive
+                    isActive: isActiveVal
                 });
 
             setStaffs(res.data.data);
@@ -81,8 +83,8 @@ const Staff = () => {
     };
 
     useEffect(() => {
-        fetchStaffs({ page: 1, pageSize: pagination.pageSize });
-    }, []);
+        fetchStaffs({ page: 1, pageSize: pagination.pageSize, status: statusFilter });
+    }, [statusFilter]);
 
     /* ================= DEBOUNCE SEARCH ================= */
     const debounceSearch = useRef(
@@ -159,10 +161,6 @@ const Staff = () => {
         {
             title: 'Trạng thái',
             dataIndex: 'isActive',
-            filters: [
-                { text: 'Hoạt động', value: true },
-                { text: 'Không hoạt động', value: false }
-            ],
             render: (val) =>
                 val ? (
                     <Tag color="green">Hoạt động</Tag>
@@ -226,14 +224,32 @@ const Staff = () => {
         <div className="space-y-4">
             {/* HEADER */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                <Input
-                    placeholder="Tìm theo tên / SĐT"
-                    prefix={<SearchOutlined />}
-                    allowClear
-                    className="flex-1"
-                    style={{ borderRadius: '20px' }}
-                    onChange={(e) => debounceSearch(e.target.value)}
-                />
+                <div className="flex flex-1 flex-col sm:flex-row gap-3">
+                    <Input
+                        placeholder="Tìm theo tên / SĐT / Mã NV"
+                        prefix={<SearchOutlined />}
+                        allowClear
+                        className="flex-1"
+                        style={{ borderRadius: '20px' }}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            setSearchKeyword(val);
+                            debounceSearch(val);
+                        }}
+                    />
+
+                    <Select
+                        className="w-full sm:w-44"
+                        style={{ borderRadius: '20px' }}
+                        value={statusFilter}
+                        onChange={(val) => setStatusFilter(val)}
+                        options={[
+                            { value: 'ALL', label: 'Tất cả trạng thái' },
+                            { value: 'ACTIVE', label: 'Hoạt động' },
+                            { value: 'INACTIVE', label: 'Không hoạt động' }
+                        ]}
+                    />
+                </div>
 
                 <Button
                     type="primary"
