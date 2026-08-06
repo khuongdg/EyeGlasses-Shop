@@ -429,7 +429,23 @@ const Invoices = () => {
         }
     };
 
-    const handleScanProductAdd = async (sku) => {
+    const extractSkuFromText = (text) => {
+        if (!text) return '';
+        const trimmed = text.trim();
+        const match = trimmed.match(/(?:Mã hàng|SKU):\s*([A-Za-z0-9_-]+)/i);
+        if (match && match[1]) {
+            return match[1].trim();
+        }
+        return trimmed.replace(/\.$/, '').trim();
+    };
+
+    const handleScanProductAdd = async (rawText) => {
+        const sku = extractSkuFromText(rawText);
+        if (!sku) {
+            message.error('Mã QR không chứa SKU hợp lệ');
+            return;
+        }
+
         try {
             setVariantLoading(true);
             const res = await getVariantBySku(sku);
@@ -440,8 +456,9 @@ const Invoices = () => {
                 return;
             }
 
+            const targetSku = foundVariant.sku || sku;
             const currentItems = form.getFieldValue('items') || [];
-            const existingIndex = currentItems.findIndex(item => item && item.sku === sku);
+            const existingIndex = currentItems.findIndex(item => item && (item.sku === targetSku || item.variantId === foundVariant._id));
 
             if (existingIndex >= 0) {
                 const updatedItems = [...currentItems];
@@ -451,11 +468,11 @@ const Invoices = () => {
                     quantity: currentQty + 1
                 };
                 form.setFieldsValue({ items: updatedItems });
-                message.success(`Đã tăng số lượng SKU ${sku} lên ${currentQty + 1}`);
+                message.success(`Đã tăng số lượng SKU ${targetSku} lên ${currentQty + 1}`);
             } else {
                 const newItem = {
                     variantId: foundVariant._id,
-                    sku: foundVariant.sku,
+                    sku: targetSku,
                     brand: foundVariant.productId?.brand || 'N/A',
                     originCountry: foundVariant.productId?.originCountry || 'N/A',
                     unit: foundVariant.unit || 'Cây',
@@ -464,7 +481,7 @@ const Invoices = () => {
                     discountPercent: bulkDiscount != null ? bulkDiscount : 0
                 };
                 form.setFieldsValue({ items: [...currentItems, newItem] });
-                message.success(`Đã thêm sản phẩm: ${sku}`);
+                message.success(`Đã thêm sản phẩm: ${targetSku}`);
             }
 
             calculateTotals();

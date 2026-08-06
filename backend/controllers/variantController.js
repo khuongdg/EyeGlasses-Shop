@@ -161,18 +161,33 @@ exports.searchVariantsByPrice = async (req, res) => {
   }
 };
 
-// Tìm variant theo SKU chính xác (dùng cho quét QR)
+// Tìm variant theo SKU chính xác (dùng cho quét QR - hỗ trợ tách SKU từ văn bản tem đầy đủ)
 exports.getVariantBySku = async (req, res) => {
   try {
-    const { sku } = req.query;
+    let { sku } = req.query;
     if (!sku) return res.status(400).json({ success: false, message: 'Thiếu SKU' });
 
+    let extractedSku = sku.trim();
+
+    // Tự động tách SKU nếu chuỗi truyền vào là văn bản tem chứa "Mã hàng: XXX" hoặc "SKU: XXX"
+    const match = extractedSku.match(/(?:Mã hàng|SKU):\s*([A-Za-z0-9_-]+)/i);
+    if (match && match[1]) {
+      extractedSku = match[1].trim();
+    } else {
+      extractedSku = extractedSku.replace(/\.$/, '').trim();
+    }
+
     const Variant = require('../models/Variant');
-    const variant = await Variant.findOne({ sku: sku.trim() })
+    let variant = await Variant.findOne({ sku: new RegExp(`^${extractedSku}$`, 'i') })
       .populate('productId', 'name brand originCountry');
 
     if (!variant) {
-      return res.status(404).json({ success: false, message: `Không tìm thấy sản phẩm có mã SKU: ${sku}` });
+      variant = await Variant.findOne({ sku: { $regex: extractedSku, $options: 'i' } })
+        .populate('productId', 'name brand originCountry');
+    }
+
+    if (!variant) {
+      return res.status(404).json({ success: false, message: `Không tìm thấy sản phẩm có mã SKU: ${extractedSku}` });
     }
 
     res.json({ success: true, data: variant });
