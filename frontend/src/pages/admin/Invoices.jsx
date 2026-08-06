@@ -228,9 +228,15 @@ const Invoices = () => {
 
     const handleCancelCreate = () => {
         const values = form.getFieldsValue(true);
-        const hasContent = values.customerId || (values.items && values.items.length > 0) || values.note;
+        const hasCustomer = !!values.customerId;
+        const hasItems = values.items && values.items.filter(Boolean).length > 0;
 
-        if (isFormModified && hasContent) {
+        // Chỉ hỏi lưu bản nháp nếu:
+        // 1. Đang sửa bản nháp có sẵn (currentEditingDraftId) VÀ form có thay đổi mới
+        // 2. Hoặc đã chọn Khách hàng (hasCustomer) VÀ có sản phẩm/ghi chú
+        const shouldPromptSaveDraft = (currentEditingDraftId && isFormModified) || (hasCustomer && (hasItems || values.note));
+
+        if (shouldPromptSaveDraft) {
             setShowSaveDraftConfirm(true);
         } else {
             handleDiscard();
