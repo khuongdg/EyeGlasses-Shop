@@ -238,13 +238,23 @@ const Invoices = () => {
     };
 
     const handleEditDraft = (draftRecord) => {
+        const draftData = draftRecord.formData || draftRecord;
+        const formattedData = {
+            ...draftData,
+            customerId: typeof draftData.customerId === 'object' ? draftData.customerId?._id : draftData.customerId,
+            staffId: typeof draftData.staffId === 'object' ? draftData.staffId?._id : draftData.staffId,
+            items: draftData.items || []
+        };
         setCurrentEditingDraftId(draftRecord._id || draftRecord.id);
-        form.setFieldsValue(draftRecord.formData || draftRecord);
+        form.setFieldsValue(formattedData);
+        setTimeout(() => {
+            calculateTotals();
+        }, 100);
         setIsFormModified(false);
         setIsDraftListModalOpen(false);
         setOpenModal(true);
         localStorage.setItem('is_invoice_modal_open', 'true');
-        localStorage.setItem('current_invoice_draft', JSON.stringify(draftRecord.formData || draftRecord));
+        localStorage.setItem('current_invoice_draft', JSON.stringify(formattedData));
     };
 
     const handleDeleteDraft = async (draftId) => {
@@ -486,6 +496,7 @@ const Invoices = () => {
 
             calculateTotals();
             updateActiveDraft();
+            setIsFormModified(true);
         } catch {
             message.error(`Lỗi khi tìm kiếm sản phẩm SKU: ${sku}`);
         } finally {

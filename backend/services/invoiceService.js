@@ -367,7 +367,8 @@ exports.getDebts = async ({ keyword, status, page = 1, limit = 10 }) => {
  * Nếu không → tạo bản nháp mới
  */
 exports.saveDraft = async (payload) => {
-  const { draftId, ...draftData } = payload;
+  const targetId = payload.draftId || payload.id;
+  const draftData = payload.formData || payload;
 
   const draftFields = {
     isDraft: true,
@@ -379,41 +380,40 @@ exports.saveDraft = async (payload) => {
     staffId: draftData.staffId || undefined,
     staffName: draftData.staffName || '',
     items: (draftData.items || []).map(item => ({
-      variantId: item.variantId || undefined,
-      sku: item.sku || '',
-      productName: item.productName || '',
-      brand: item.brand || '',
-      originCountry: item.originCountry || '',
-      unit: item.unit || '',
-      price: item.price || 0,
-      quantity: item.quantity || 0,
-      discountPercent: item.discountPercent || 0,
-      rowTotal: item.rowTotal || 0,
-      customerName: item.customerName || ''
+      variantId: item?.variantId || undefined,
+      sku: item?.sku || '',
+      productName: item?.productName || '',
+      brand: item?.brand || '',
+      originCountry: item?.originCountry || '',
+      unit: item?.unit || '',
+      price: Number(item?.price) || 0,
+      quantity: Number(item?.quantity) || 0,
+      discountPercent: Number(item?.discountPercent) || 0,
+      rowTotal: Number(item?.rowTotal) || (Number(item?.price || 0) * Number(item?.quantity || 0) * (1 - (Number(item?.discountPercent || 0)) / 100)) || 0,
+      customerName: item?.customerName || ''
     })),
-    totalQuantity: draftData.totalQuantity || 0,
-    subTotal: draftData.subTotal || 0,
-    totalDiscount: draftData.totalDiscount || 0,
-    totalAmount: draftData.totalAmount || 0,
+    totalQuantity: Number(draftData.totalQuantity) || 0,
+    subTotal: Number(draftData.subTotal) || 0,
+    totalDiscount: Number(draftData.totalDiscount) || 0,
+    totalAmount: Number(draftData.totalAmount) || 0,
     paymentMethod: draftData.paymentMethod || undefined,
     note: draftData.note || ''
   };
 
-  if (draftId) {
-    // Cập nhật đè lên bản nháp cũ
+  if (targetId) {
+    // Cập nhật đè lên bản nháp cũ nếu đã tồn tại ID
     const updated = await Invoice.findOneAndUpdate(
-      { _id: draftId, isDraft: true },
+      { _id: targetId, isDraft: true },
       { $set: draftFields },
       { new: true }
     );
-    if (!updated) throw new Error('Không tìm thấy bản nháp để cập nhật.');
-    return updated;
-  } else {
-    // Tạo bản nháp mới
-    const newDraft = new Invoice(draftFields);
-    await newDraft.save();
-    return newDraft;
+    if (updated) return updated;
   }
+
+  // Tạo bản nháp mới nếu chưa có ID
+  const newDraft = new Invoice(draftFields);
+  await newDraft.save();
+  return newDraft;
 };
 
 /**
