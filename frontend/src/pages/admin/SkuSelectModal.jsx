@@ -23,6 +23,7 @@ const SkuSelectModal = ({ open, onClose, variants = [], onConfirm, initialSelect
 
     const handleConfirm = () => {
         onConfirm(selectedIds);
+        onClose();
     };
 
     // Lọc các variant dựa trên từ khóa tìm kiếm

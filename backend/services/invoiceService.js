@@ -361,26 +361,43 @@ exports.getDebts = async ({ keyword, status, page = 1, limit = 10 }) => {
 
   return { data: debts, total, page, limit, totalRemaining, totalPaid };
 };
+const cleanObjectId = (val) => {
+  if (!val) return undefined;
+  const idStr = typeof val === 'object' ? (val._id || val.id) : String(val);
+  return (idStr && mongoose.Types.ObjectId.isValid(idStr)) ? idStr : undefined;
+};
+
 /**
  * Lưu bản nháp phiếu xuất kho lên DB
  * Nếu draftId được truyền → cập nhật bản nháp cũ
  * Nếu không → tạo bản nháp mới
  */
 exports.saveDraft = async (payload) => {
-  const targetId = payload.draftId || payload.id;
+  const rawId = payload.draftId || payload.id;
+  const targetId = cleanObjectId(rawId);
   const draftData = payload.formData || payload;
+
+  const validPaymentMethods = ['CASH', 'TRANSFER', 'DEBT', 'NONE'];
+  const paymentMethod = validPaymentMethods.includes(draftData.paymentMethod) ? draftData.paymentMethod : 'DEBT';
+
+  // Thử drop index invoiceCode_1 cũ nếu nó không phải sparse index trên MongoDB Atlas
+  try {
+    await Invoice.collection.dropIndex('invoiceCode_1');
+  } catch (e) {
+    // Ignore nếu index đã được drop hoặc chưa khởi tạo
+  }
 
   const draftFields = {
     isDraft: true,
-    customerId: draftData.customerId || undefined,
+    customerId: cleanObjectId(draftData.customerId),
     customerName: draftData.customerName || '',
     customerPhone: draftData.customerPhone || '',
     customerAddress: draftData.customerAddress || '',
     customerTaxCode: draftData.customerTaxCode || '',
-    staffId: draftData.staffId || undefined,
+    staffId: cleanObjectId(draftData.staffId),
     staffName: draftData.staffName || '',
     items: (draftData.items || []).map(item => ({
-      variantId: item?.variantId || undefined,
+      variantId: cleanObjectId(item?.variantId),
       sku: item?.sku || '',
       productName: item?.productName || '',
       brand: item?.brand || '',
@@ -396,7 +413,7 @@ exports.saveDraft = async (payload) => {
     subTotal: Number(draftData.subTotal) || 0,
     totalDiscount: Number(draftData.totalDiscount) || 0,
     totalAmount: Number(draftData.totalAmount) || 0,
-    paymentMethod: draftData.paymentMethod || undefined,
+    paymentMethod,
     note: draftData.note || ''
   };
 
@@ -409,6 +426,9 @@ exports.saveDraft = async (payload) => {
     );
     if (updated) return updated;
   }
+
+  // Tự động sinh mã nháp duy nhất DRAFT-timestamp để đảm bảo không bao giờ bị trùng null trên MongoDB
+  draftFields.invoiceCode = `DRAFT-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
   // Tạo bản nháp mới nếu chưa có ID
   const newDraft = new Invoice(draftFields);

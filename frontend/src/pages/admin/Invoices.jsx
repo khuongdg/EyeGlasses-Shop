@@ -211,8 +211,9 @@ const Invoices = () => {
 
             fetchDraftsList();
             message.success('Đã lưu bản nháp thành công');
-        } catch {
-            message.error('Lỗi khi lưu bản nháp');
+        } catch (err) {
+            console.error('Lỗi khi lưu bản nháp:', err);
+            message.error(err?.response?.data?.message || 'Lỗi khi lưu bản nháp');
         }
     };
 
@@ -227,16 +228,7 @@ const Invoices = () => {
     };
 
     const handleCancelCreate = () => {
-        const values = form.getFieldsValue(true);
-        const hasCustomer = !!values.customerId;
-        const hasItems = values.items && values.items.filter(Boolean).length > 0;
-
-        // Chỉ hỏi lưu bản nháp nếu:
-        // 1. Đang sửa bản nháp có sẵn (currentEditingDraftId) VÀ form có thay đổi mới
-        // 2. Hoặc đã chọn Khách hàng (hasCustomer) VÀ có sản phẩm/ghi chú
-        const shouldPromptSaveDraft = (currentEditingDraftId && isFormModified) || (hasCustomer && (hasItems || values.note));
-
-        if (shouldPromptSaveDraft) {
+        if (isFormModified) {
             setShowSaveDraftConfirm(true);
         } else {
             handleDiscard();
@@ -329,6 +321,7 @@ const Invoices = () => {
         calculateTotals();
         updateActiveDraft();
         setIsFormModified(true);
+        setIsSkuModalOpen(false);
     };
 
     /* ================= TÍNH TOÁN REAL-TIME ================= */
