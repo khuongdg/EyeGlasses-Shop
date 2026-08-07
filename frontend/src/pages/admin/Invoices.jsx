@@ -48,13 +48,22 @@ import { getStaffs } from '../../services/staffService';
 import { getVariants, getVariantBySku } from '../../services/variantService';
 import { Form } from 'antd';
 
-const Invoices = () => {
-    const [invoices, setInvoices] = useState([]);
-    const [customers, setCustomers] = useState([]);
-    const [staffs, setStaffs] = useState([]);
-    const [variants, setVariants] = useState([]);
+const loadCache = (key) => {
+    try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : [];
+    } catch {
+        return [];
+    }
+};
 
-    const [loading, setLoading] = useState(false);
+const Invoices = () => {
+    const [invoices, setInvoices] = useState(() => loadCache('cached_invoices'));
+    const [customers, setCustomers] = useState(() => loadCache('cached_customers'));
+    const [staffs, setStaffs] = useState(() => loadCache('cached_staffs'));
+    const [variants, setVariants] = useState(() => loadCache('cached_variants'));
+
+    const [loading, setLoading] = useState(() => loadCache('cached_invoices').length === 0);
     const [variantLoading, setVariantLoading] = useState(false);
     const [openModal, setOpenModal] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
@@ -99,7 +108,7 @@ const Invoices = () => {
     const [pagination, setPagination] = useState({
         current: 1,
         pageSize: 10,
-        total: 0
+        total: loadCache('cached_invoices').length || 0
     });
 
     const [queryParams, setQueryParams] = useState({
@@ -117,10 +126,11 @@ const Invoices = () => {
 
     /* ================= LOGIC FETCH DỮ LIỆU ================= */
     const fetchInvoices = async (params = queryParams) => {
-        setLoading(true);
+        if (invoices.length === 0) setLoading(true);
         try {
             const res = await getInvoices(params);
             setInvoices(res.data.data);
+            try { localStorage.setItem('cached_invoices', JSON.stringify(res.data.data)); } catch {}
             setPagination({
                 current: res.data.page || params.page || 1,
                 pageSize: res.data.limit || params.limit || 10,
@@ -143,6 +153,11 @@ const Invoices = () => {
             setCustomers(cusRes.data.data);
             setStaffs(staffRes.data.data);
             setVariants(varRes.data.data);
+            try {
+                localStorage.setItem('cached_customers', JSON.stringify(cusRes.data.data));
+                localStorage.setItem('cached_staffs', JSON.stringify(staffRes.data.data));
+                localStorage.setItem('cached_variants', JSON.stringify(varRes.data.data));
+            } catch {}
         } catch {
             message.error('Lỗi tải dữ liệu danh mục');
         }

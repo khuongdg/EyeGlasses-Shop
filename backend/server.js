@@ -51,6 +51,10 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(bodyParser.json());
 
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 app.use('/api/auth', require('./routes/authRoute'));
 app.use('/api/products', require('./routes/productRoute'));
 app.use('/api/customers', require('./routes/customerRoute'));
@@ -59,6 +63,18 @@ app.use('/api/staffs', require('./routes/staffRoute'));
 app.use('/api/invoices', require('./routes/invoiceRoute'));
 app.use('/api/imports', require('./routes/importRoute'));
 app.use('/api/dashboard', require('./routes/dashboardRoute'));
+
+// Tự động ping giữ Backend Render không bị ngủ (Self-ping every 10 mins)
+const https = require('https');
+const http = require('http');
+setInterval(() => {
+  const backendUrl = process.env.RENDER_EXTERNAL_URL || 'https://eyeglasses-shop.onrender.com/api/health';
+  if (backendUrl.startsWith('https')) {
+    https.get(backendUrl, () => {}).on('error', () => {});
+  } else {
+    http.get(backendUrl, () => {}).on('error', () => {});
+  }
+}, 10 * 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
 

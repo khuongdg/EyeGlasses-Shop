@@ -1,10 +1,13 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 import AppRouter from './router/AppRouter';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 phút cache
+      staleTime: 1000 * 60 * 60 * 24, // 24 giờ stale time (hiển thị ngay dữ liệu cache)
+      gcTime: 1000 * 60 * 60 * 24,    // Giữ cache 24 giờ
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
       retry: 1
@@ -12,11 +15,18 @@ const queryClient = new QueryClient({
   }
 });
 
+const persister = createSyncStoragePersister({
+  storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+});
+
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 * 7 }}
+    >
       <AppRouter />
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
 
