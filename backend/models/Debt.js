@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const invoiceConnection = require('../database/invoiceConnection');
+const { createTenantModelProxy } = require('../database/tenantManager');
 
 const DebtSchema = new mongoose.Schema({
   // Liên kết đến phiếu xuất kho gốc
@@ -35,4 +35,4 @@ const DebtSchema = new mongoose.Schema({
   note: String
 }, { timestamps: true });
 
-module.exports = invoiceConnection.model('Debt', DebtSchema);
+module.exports = createTenantModelProxy('Debt', DebtSchema);

@@ -458,8 +458,11 @@ const Debts = () => {
                     {selectedDebt?.paymentHistory?.length > 0 ? (
                         selectedDebt.paymentHistory.map((h, i) => (
                             <Timeline.Item key={i} color="green">
-                                <Text strong>{new Date(h.paymentDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</Text> <br />
+                                <Text strong className="text-gray-800">
+                                    {new Date(h.paymentDate).toLocaleString('vi-VN')}
+                                </Text> <br />
                                 <Text>Đã nộp: <b style={{ color: '#52c41a' }}>{h.amount.toLocaleString()}₫</b></Text> <br />
+                                {h.staffName && <><Text type="secondary">Nhân viên thu: {h.staffName}</Text><br /></>}
                                 <Text type="secondary">Nội dung: {h.note || 'Không có ghi chú'}</Text>
                             </Timeline.Item>
                         ))

@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import {
   Table,
   Button,
@@ -12,9 +14,16 @@ import {
   Space,
   Grid,
   Upload,
+  Dropdown,
   Popconfirm
 } from 'antd';
-import { PlusOutlined, FileExcelOutlined, SearchOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined,
+  FileExcelOutlined,
+  SearchOutlined,
+  DownloadOutlined,
+  DownOutlined
+} from '@ant-design/icons';
 import debounce from 'lodash/debounce';
 
 import {
@@ -46,9 +55,7 @@ const Customer = () => {
   const { useBreakpoint } = Grid;
   const screens = useBreakpoint();
 
-
   const [form] = Form.useForm();
-
   const [importLoading, setImportLoading] = useState(false);
 
   /* ================= FETCH ================= */
@@ -81,7 +88,103 @@ const Customer = () => {
     fetchCustomers('', 1, pagination.pageSize, statusFilter);
   }, [statusFilter]);
 
-  /* ================= AI IMPORT LOGIC (WITH LOGS) ================= */
+  /* ================= DOWNLOAD TEMPLATE EXCEL ================= */
+  const downloadTemplate = async () => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+
+      // SHEET 1: ĐIỀN DỮ LIỆU KHÁCH HÀNG
+      const worksheet1 = workbook.addWorksheet('Template_KhachHang');
+      worksheet1.columns = [
+        { header: 'Tên khách hàng', key: 'name', width: 25 },
+        { header: 'Số điện thoại', key: 'phone', width: 18 },
+        { header: 'Email', key: 'email', width: 25 },
+        { header: 'Mã số thuế', key: 'taxCode', width: 18 },
+        { header: 'Địa chỉ', key: 'address', width: 35 },
+      ];
+      worksheet1.spliceRows(1, 1);
+
+      const headerRow = worksheet1.addRow([
+        'Tên khách hàng',
+        'Số điện thoại',
+        'Email',
+        'Mã số thuế',
+        'Địa chỉ'
+      ]);
+      headerRow.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } };
+        cell.font = { name: 'Arial', bold: true, color: { argb: 'FF006100' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+      headerRow.height = 25;
+
+      const sampleData = [
+        ['Nguyễn Văn A', '0901234567', 'nguyenvana@gmail.com', '0312345678', '123 Nguyễn Trãi, Q.5, TP.HCM'],
+        ['Trần Thị B', '0987654321', 'tranthib@gmail.com', '', '456 Lê Hồng Phong, Q.10, TP.HCM'],
+        ['Mắt Kính Việt Long', '0912345678', 'contact@vietlong.com', '0309876543', '789 Trần Hưng Đạo, Tây Ninh']
+      ];
+
+      sampleData.forEach((row) => {
+        const r = worksheet1.addRow(row);
+        r.getCell(2).alignment = { horizontal: 'center' };
+        r.getCell(4).alignment = { horizontal: 'center' };
+        r.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+        });
+      });
+
+      // SHEET 2: HƯỚNG DẪN & LƯU Ý
+      const worksheet2 = workbook.addWorksheet('Hướng_Dẫn_Lưu_Ý');
+      worksheet2.columns = [
+        { width: 28 },
+        { width: 75 }
+      ];
+
+      const guideTitle = worksheet2.addRow(['QUY ĐỊNH & HƯỚNG DẪN NHẬP FILE KHÁCH HÀNG (IMPORT EXCEL)']);
+      worksheet2.mergeCells('A1:B1');
+      guideTitle.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FF1D6F42' } };
+      guideTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+      guideTitle.height = 35;
+      worksheet2.addRow([]);
+
+      const guidelines = [
+        ['1. Tên khách hàng:', 'Bắt buộc phải điền tên khách hàng hoặc tên công ty.'],
+        ['2. Số điện thoại:', 'Bắt buộc điền SĐT gồm 10 chữ số (Ví dụ: 0901234567). Hệ thống sẽ tự động bù số 0 đầu nếu Excel làm mất.'],
+        ['3. Email, Mã số thuế & Địa chỉ:', 'Tùy chọn. Có thể để trống nếu chưa có thông tin.'],
+        ['4. Lưu ý về tên cột:', 'TUYỆT ĐỐI không thay đổi tiêu đề dòng 1 ở Sheet 1 ("Tên khách hàng", "Số điện thoại", "Email", "Mã số thuế", "Địa chỉ").'],
+        ['5. Lưu ý dữ liệu mẫu:', 'Dữ liệu ở Sheet 1 chỉ là mẫu tham khảo, hãy thay thế bằng thông tin thực tế trước khi tải lên hệ thống.']
+      ];
+
+      guidelines.forEach((guideline) => {
+        const row = worksheet2.addRow(guideline);
+        row.height = 30;
+        row.getCell(1).font = { name: 'Arial', bold: true, color: { argb: 'FFFF0000' } };
+        row.getCell(1).alignment = { vertical: 'middle' };
+        row.getCell(2).font = { name: 'Arial', italic: true };
+        row.getCell(2).alignment = { vertical: 'middle', wrapText: true };
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      saveAs(new Blob([buffer]), 'Mau_Nhap_Khach_Hang.xlsx');
+      message.success('Tải file mẫu khách hàng kèm hướng dẫn thành công!');
+    } catch (err) {
+      console.error('Download template error:', err);
+      message.error('Không thể tạo file mẫu Excel');
+    }
+  };
+
+  /* ================= AI IMPORT LOGIC ================= */
   const handleAIImport = (file) => {
     const reader = new FileReader();
     setImportLoading(true);
@@ -93,10 +196,9 @@ const Customer = () => {
         const sheetName = workbook.SheetNames[0];
         const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-        console.log("1. Dữ liệu thô từ Excel:", rawData); //
+        console.log("1. Dữ liệu thô từ Excel:", rawData);
 
         const processedData = rawData.map((item, index) => {
-          // Tự động bù số 0 nếu SĐT chỉ có 9 chữ số (do Excel làm mất số 0 đầu)
           let phone = String(item['Điện thoại'] || item['Số điện thoại'] || item['SDT'] || '').replace(/\D/g, '');
           if (phone.length === 9 && phone.startsWith('9') || phone.length === 9) {
             phone = '0' + phone;
@@ -106,17 +208,17 @@ const Customer = () => {
             name: (item['Tên khách hàng'] || item['Khách hàng'] || item['Name'])?.toString().trim(),
             phone: phone,
             email: item['Email']?.toString().trim(),
+            taxCode: (item['Mã số thuế'] || item['MST'] || item['TaxCode'])?.toString().trim(),
             address: (item['Địa chỉ'] || item['Address'])?.toString().trim(),
-            originalLine: index + 2 // Lưu lại số dòng trong Excel để log lỗi
+            originalLine: index + 2
           };
         });
 
-        // Lọc dữ liệu hợp lệ
         const validData = processedData.filter(item => item.name && /^0\d{9}$/.test(item.phone));
         const invalidData = processedData.filter(item => !item.name || !/^0\d{9}$/.test(item.phone));
 
         console.log("2. Danh sách khách hàng hợp lệ:");
-        console.table(validData); // Hiện bảng trong Console để kiểm tra nhanh
+        console.table(validData);
 
         if (invalidData.length > 0) {
           console.warn("3. Danh sách dòng bị lỗi/bỏ qua:", invalidData);
@@ -126,13 +228,11 @@ const Customer = () => {
           throw new Error('Không có dữ liệu hợp lệ. Kiểm tra cột "Tên khách hàng" và "Điện thoại"');
         }
 
-        // Gửi lên Backend
         const res = await aiBulkImport(validData);
         const { createdCount, updatedCount, errors } = res.data.data;
 
-        // Hiển thị Modal báo cáo chi tiết
         Modal.success({
-          title: 'Kết quả AI Import',
+          title: 'Kết quả AI Import Khách Hàng',
           content: (
             <div>
               <p>Thêm mới thành công: <b>{createdCount}</b></p>
@@ -162,6 +262,34 @@ const Customer = () => {
     reader.readAsArrayBuffer(file);
     return false;
   };
+
+  /* ================= EXCEL MENU ITEMS ================= */
+  const excelMenuItems = [
+    {
+      key: 'download_template',
+      label: <span style={{ fontWeight: 600 }}>Tải file mẫu Excel</span>,
+      icon: <DownloadOutlined />,
+      onClick: downloadTemplate
+    },
+    {
+      type: 'divider'
+    },
+    {
+      key: 'import_excel',
+      label: (
+        <Upload
+          accept=".xlsx, .xls"
+          showUploadList={false}
+          beforeUpload={handleAIImport}
+          disabled={importLoading}
+          style={{ width: '100%' }}
+        >
+          <div style={{ width: '100%', fontWeight: 600 }}>Import Excel Khách hàng</div>
+        </Upload>
+      ),
+      icon: <FileExcelOutlined />
+    }
+  ];
 
   /* ================= DEBOUNCE SEARCH ================= */
   const debounceSearch = useRef(
@@ -319,15 +447,13 @@ const Customer = () => {
         </div>
 
         <Space wrap>
-          {/* Nút Import thông minh */}
-          <Upload
-            accept=".xlsx, .xls"
-            showUploadList={false}
-            beforeUpload={handleAIImport}
-            disabled={importLoading}
+          {/* Menu thao tác Excel chuẩn giống trang Sản phẩm */}
+          <Dropdown
+            menu={{ items: excelMenuItems }}
+            placement="bottomRight"
+            trigger={['click']}
           >
             <Button
-              icon={<FileExcelOutlined />}
               loading={importLoading}
               className="text-white bg-[#1D6F42] border-[#1D6F42] 
                          hover:!bg-[#278950] hover:!text-white hover:!border-[#278950] 
@@ -335,9 +461,9 @@ const Customer = () => {
                          active:!bg-[#155231] 
                          transition-all duration-200"
             >
-              Import By Excel
+              Thao tác Excel <DownOutlined />
             </Button>
-          </Upload>
+          </Dropdown>
 
           <Button
             type="primary"
@@ -510,7 +636,6 @@ const Customer = () => {
             />
           </Form.Item>
 
-
           <Form.Item
             label="Email"
             name="email"
@@ -523,7 +648,6 @@ const Customer = () => {
           >
             <Input placeholder="example@email.com" />
           </Form.Item>
-
 
           <Form.Item label="Mã số thuế" name="taxCode">
             <Input />

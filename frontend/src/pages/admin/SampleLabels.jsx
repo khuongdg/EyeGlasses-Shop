@@ -44,6 +44,7 @@ const SampleLabels = () => {
     const [variantLoading, setVariantLoading] = useState(false);
     const [openModal, setOpenModal] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
+    const [printLoading, setPrintLoading] = useState(false);
 
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [printMinimal, setPrintMinimal] = useState(false);
@@ -66,6 +67,9 @@ const SampleLabels = () => {
         if (pendingPrint) {
             handlePrintLabels();
             setPendingPrint(false);
+            setTimeout(() => {
+                setPrintLoading(false);
+            }, 500);
         }
     }, [pendingPrint, handlePrintLabels]);
 
@@ -176,42 +180,48 @@ const SampleLabels = () => {
         }
     };
 
-    const triggerPrint = useCallback(async (record, isMinimal = false) => {
-        let invoiceToUse = record;
+    const triggerPrint = useCallback(async (record, isMinimal = true) => {
+        setPrintLoading(true);
+        try {
+            let invoiceToUse = record;
 
-        if (isMinimal) {
-            // Sinh QR mới cho từng item chỉ chứa đúng chuỗi SKU
-            const itemsWithSkuQr = await Promise.all(
-                (record.items || []).map(async (item) => {
-                    const skuQr = await QRCode.toDataURL(item.sku, {
-                        errorCorrectionLevel: 'L',
-                        margin: 1,
-                        width: 600,
-                        color: { dark: '#000000', light: '#FFFFFF' }
-                    });
-                    return { ...item, itemQrCode: skuQr };
-                })
-            );
-            invoiceToUse = { ...record, items: itemsWithSkuQr };
-        }
-
-        const flatItems = [];
-        (invoiceToUse.items || []).forEach((item) => {
-            const qty = Number(item.quantity) || 0;
-            for (let i = 0; i < qty; i++) {
-                flatItems.push({
-                    ...item,
-                    printPrice: item.price,
-                    customerName: item.customerName || invoiceToUse.customerName || 'Hàng mẫu',
-                    tempId: `${item.sku}-${i}`
-                });
+            if (isMinimal) {
+                // Sinh QR mới cho từng item chỉ chứa đúng chuỗi SKU
+                const itemsWithSkuQr = await Promise.all(
+                    (record.items || []).map(async (item) => {
+                        const skuQr = await QRCode.toDataURL(item.sku, {
+                            errorCorrectionLevel: 'L',
+                            margin: 1,
+                            width: 600,
+                            color: { dark: '#000000', light: '#FFFFFF' }
+                        });
+                        return { ...item, itemQrCode: skuQr };
+                    })
+                );
+                invoiceToUse = { ...record, items: itemsWithSkuQr };
             }
-        });
 
-        setSelectedInvoice(invoiceToUse);
-        setPrintMinimal(isMinimal);
-        setLabelItems(flatItems);
-        setPendingPrint(true);
+            const flatItems = [];
+            (invoiceToUse.items || []).forEach((item) => {
+                const qty = Number(item.quantity) || 0;
+                for (let i = 0; i < qty; i++) {
+                    flatItems.push({
+                        ...item,
+                        printPrice: item.price,
+                        customerName: item.customerName || invoiceToUse.customerName || 'Hàng mẫu',
+                        tempId: `${item.sku}-${i}`
+                    });
+                }
+            });
+
+            setSelectedInvoice(invoiceToUse);
+            setPrintMinimal(isMinimal);
+            setLabelItems(flatItems);
+            setPendingPrint(true);
+        } catch (err) {
+            message.error('Khởi tạo tem in thất bại');
+            setPrintLoading(false);
+        }
     }, []);
 
     /* ================= LOGIC FORM TẠO PHIẾU ================= */
@@ -287,39 +297,52 @@ const SampleLabels = () => {
         }
     };
 
-    const handleOpenPrintAllModal = () => {
-        form.resetFields();
-
+    const handleOpenPrintAllModal = async () => {
         if (!variants || variants.length === 0) {
             message.warning('Không có sản phẩm nào trong hệ thống để in');
             return;
         }
 
-        const allItems = variants.map((v) => {
-            const productName = v.productId?.name || '';
-            const brand = v.productId?.brand || 'N/A';
-            const originCountry = v.productId?.originCountry || 'N/A';
-            const unit = v.unit || 'Cây';
-
-            return {
+        setPrintLoading(true);
+        try {
+            const allItems = variants.map((v) => ({
                 variantId: v._id,
                 sku: v.sku,
-                productName: productName,
-                brand: brand,
-                originCountry: originCountry,
-                unit: unit,
-                price: v.price,
-                quantity: 1, // Mặc định số lượng là 1
-                customerName: '' // Trống để in mặc định Hàng mẫu
+                productName: v.productId?.name || '',
+                brand: v.productId?.brand || 'N/A',
+                originCountry: v.productId?.originCountry || 'N/A',
+                unit: v.unit || 'Cây',
+                price: v.price || 0,
+                quantity: 1,
+                discountPercent: 0,
+                rowTotal: v.price || 0,
+                customerName: ''
+            }));
+
+            const totalQty = allItems.length;
+            const totalAmt = allItems.reduce((sum, it) => sum + (it.price || 0), 0);
+            const defaultStaff = (staffs && staffs.length > 0) ? staffs[0] : null;
+
+            const payload = {
+                isSample: true,
+                staffId: defaultStaff?._id,
+                staffName: defaultStaff?.name || 'Nhân viên',
+                note: 'In tem mẫu tất cả sản phẩm',
+                totalQuantity: totalQty,
+                subTotal: totalAmt,
+                totalAmount: totalAmt,
+                items: allItems
             };
-        });
 
-        form.setFieldsValue({
-            items: allItems
-        });
-
-        calculateTotals();
-        setOpenModal(true);
+            const res = await createInvoice(payload);
+            const createdData = res.data?.data || res.data || res;
+            message.success(`Đã tạo phiếu ${createdData.invoiceCode || ''} và đang mở bản in tất cả ${totalQty} tem...`);
+            fetchInvoices();
+            await triggerPrint(createdData, true);
+        } catch (err) {
+            message.error(err.response?.data?.message || 'Tạo phiếu in tất cả thất bại');
+            setPrintLoading(false);
+        }
     };
 
     /* ================= COLUMNS TABLE ================= */
@@ -395,49 +418,49 @@ const SampleLabels = () => {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <Button
-                        icon={<PlusOutlined />}
-                        onClick={handleOpenPrintAllModal}
-                        style={{
-                            backgroundColor: '#fff7e6',
-                            borderColor: '#ffd591',
-                            color: '#d46b08',
-                            transition: 'all 0.3s',
+                    <Dropdown
+                        trigger={['click']}
+                        disabled={printLoading || submitLoading}
+                        menu={{
+                            items: [
+                                {
+                                    key: 'all',
+                                    label: 'In tem tất cả',
+                                    disabled: printLoading || submitLoading,
+                                    onClick: handleOpenPrintAllModal
+                                },
+                                {
+                                    key: 'custom',
+                                    label: 'In tem tuỳ chọn',
+                                    disabled: printLoading || submitLoading,
+                                    onClick: () => {
+                                        form.resetFields();
+                                        form.setFieldsValue({ items: [{}] });
+                                        setOpenModal(true);
+                                    }
+                                }
+                            ]
                         }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#ffe7ba';
-                            e.currentTarget.style.borderColor = '#ffc069';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = '#fff7e6';
-                            e.currentTarget.style.borderColor = '#ffd591';
-                        }}
-                        className="w-full sm:w-auto"
-                        size={isMobile ? 'small' : 'middle'}
                     >
-                        In tem tất cả
-                    </Button>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => {
-                            form.resetFields();
-                            form.setFieldsValue({ items: [{}] });
-                            setOpenModal(true);
-                        }}
-                        className="w-full sm:w-auto"
-                        size={isMobile ? 'small' : 'middle'}
-                    >
-                        In tem tuỳ chọn
-                    </Button>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            loading={printLoading}
+                            disabled={printLoading || submitLoading}
+                            className="w-full sm:w-auto"
+                            size={isMobile ? 'small' : 'middle'}
+                        >
+                            Tạo in tem ▾
+                        </Button>
+                    </Dropdown>
                 </div>
             </div>
 
             {/* FILTER BAR */}
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-4">
-                <Row gutter={[12, 12]} align="middle">
+                <div className="flex flex-col sm:flex-row gap-3 items-center w-full">
                     {/* SEARCH */}
-                    <Col xs={24} sm={12} md={11} lg={12}>
+                    <div className="flex-1 w-full">
                         <Input
                             placeholder="Mã phiếu hoặc tên nhân viên..."
                             prefix={<SearchOutlined className="text-gray-400" />}
@@ -452,10 +475,10 @@ const SampleLabels = () => {
                             className="w-full"
                             style={{ borderRadius: '20px' }}
                         />
-                    </Col>
+                    </div>
 
                     {/* DATE RANGE */}
-                    <Col xs={12} sm={6} md={8} lg={8}>
+                    <div className="w-full sm:w-auto shrink-0 sm:min-w-[260px]">
                         <RangePicker
                             className="w-full"
                             placeholder={['Từ ngày', 'Đến ngày']}
@@ -473,34 +496,8 @@ const SampleLabels = () => {
                             }}
                             size={isMobile ? 'small' : 'middle'}
                         />
-                    </Col>
-
-                    {/* TRẠNG THÁI */}
-                    <Col xs={12} sm={6} md={5} lg={4}>
-                        <Select
-                            className="w-full"
-                            size={isMobile ? 'small' : 'middle'}
-                            style={{ borderRadius: '20px' }}
-                            value={queryParams.isActive === true ? 'ACTIVE' : queryParams.isActive === false ? 'INACTIVE' : 'ALL'}
-                            onChange={(val) => {
-                                const newStatus = val === 'ACTIVE' ? true : (val === 'INACTIVE' ? false : null);
-                                const newParams = {
-                                    ...queryParams,
-                                    page: 1,
-                                    isActive: newStatus
-                                };
-                                setQueryParams(newParams);
-                                fetchInvoices(newParams);
-                            }}
-                            options={[
-                                { value: 'ALL', label: 'Tất cả trạng thái' },
-                                { value: 'ACTIVE', label: 'Hoạt động' },
-                                { value: 'INACTIVE', label: 'Đã hủy' }
-                            ]}
-                        />
-                    </Col>
-                    
-                </Row>
+                    </div>
+                </div>
             </div>
 
             {/* TABLE LIST */}
@@ -552,7 +549,9 @@ const SampleLabels = () => {
                                 <Button
                                     size="small"
                                     icon={<PrinterOutlined />}
-                                    onClick={() => triggerPrint(invoice)}
+                                    loading={printLoading}
+                                    disabled={printLoading}
+                                    onClick={() => triggerPrint(invoice, true)}
                                 >
                                     In tem
                                 </Button>
@@ -653,40 +652,19 @@ const SampleLabels = () => {
                 footer={[
                     <Button key="close" onClick={() => { setOpenDetail(false); setSelectedItemSkus([]); }}>Đóng</Button>,
                     viewingInvoice && (
-                        <Dropdown
+                        <Button
                             key="print"
-                            trigger={['click']}
-                            menu={{
-                                items: [
-                                    {
-                                        key: 'full',
-                                        icon: <BarcodeOutlined />,
-                                        label: 'In tem đầy đủ thông tin',
-                                        onClick: () => triggerPrint(
-                                            { ...viewingInvoice, items: (viewingInvoice.items || []).filter(it => selectedItemSkus.includes(it.sku)) },
-                                            false
-                                        )
-                                    },
-                                    {
-                                        key: 'minimal',
-                                        icon: <PrinterOutlined />,
-                                        label: 'In tem QR tối giản',
-                                        onClick: () => triggerPrint(
-                                            { ...viewingInvoice, items: (viewingInvoice.items || []).filter(it => selectedItemSkus.includes(it.sku)) },
-                                            true
-                                        )
-                                    }
-                                ]
-                            }}
+                            type="primary"
+                            icon={<PrinterOutlined />}
+                            loading={printLoading}
+                            disabled={selectedItemSkus.length === 0 || printLoading}
+                            onClick={() => triggerPrint(
+                                { ...viewingInvoice, items: (viewingInvoice.items || []).filter(it => selectedItemSkus.includes(it.sku)) },
+                                true
+                            )}
                         >
-                            <Button
-                                type="primary"
-                                icon={<PrinterOutlined />}
-                                disabled={selectedItemSkus.length === 0}
-                            >
-                                In tem ({selectedItemSkus.length}) ▾
-                            </Button>
-                        </Dropdown>
+                            In tem ({selectedItemSkus.length})
+                        </Button>
                     )
                 ]}
                 width={750}

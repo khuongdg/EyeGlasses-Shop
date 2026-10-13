@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { tenantStorage } = require('../database/tenantManager');
 
 exports.authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -10,8 +11,14 @@ exports.authenticate = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; 
-    next();
+    req.user = decoded;
+
+    const dbName = decoded.dbName || 'invoice_db';
+    const tenantSlug = decoded.tenantSlug || 'thuanthien';
+
+    tenantStorage.run({ dbName, tenantSlug }, () => {
+      next();
+    });
   } catch {
     res.status(401).json({ message: 'Invalid token' });
   }

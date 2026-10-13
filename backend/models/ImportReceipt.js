@@ -1,10 +1,18 @@
 const mongoose = require('mongoose');
-const invoiceConnection = require('../database/invoiceConnection');
+const { createTenantModelProxy } = require('../database/tenantManager');
 
 const ImportReceiptSchema = new mongoose.Schema({
     importCode: { type: String, unique: true }, // PNK/YYMMDD/XXXX
     staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' },
     staffName: String, // Snapshot tên nhân viên
+
+    companyInfo: {
+        name: String,
+        phone: String,
+        address: String,
+        email: String,
+        taxCode: String
+    },
 
     // Danh sách sản phẩm nhập
     items: [{
@@ -23,4 +31,4 @@ const ImportReceiptSchema = new mongoose.Schema({
     isActive: { type: Boolean, default: true } // Cho phép hủy phiếu nhập nếu nhập sai
 }, { timestamps: true });
 
-module.exports = invoiceConnection.model('ImportReceipt', ImportReceiptSchema);
+module.exports = createTenantModelProxy('ImportReceipt', ImportReceiptSchema);

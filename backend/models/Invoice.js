@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const invoiceConnection = require('../database/invoiceConnection');
+const { createTenantModelProxy } = require('../database/tenantManager');
 
 const InvoiceItemSchema = new mongoose.Schema({
   variantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Variant' },
@@ -56,4 +56,4 @@ const InvoiceSchema = new mongoose.Schema({
   isDraft: { type: Boolean, default: false }
 }, { timestamps: true });
 
-module.exports = invoiceConnection.model('Invoice', InvoiceSchema);
+module.exports = createTenantModelProxy('Invoice', InvoiceSchema);

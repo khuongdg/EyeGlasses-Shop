@@ -8,11 +8,15 @@ const axiosClient = axios.create({
   withCredentials: true // Cho phép truyền nhận cookie (refreshToken)
 });
 
-// Request Interceptor: Gắn token vào Header trước khi gửi yêu cầu
+// Request Interceptor: Gắn token và x-tenant-id vào Header trước khi gửi yêu cầu
 axiosClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
+  const tenantSlug = localStorage.getItem('tenantSlug');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  if (tenantSlug) {
+    config.headers['x-tenant-id'] = tenantSlug;
   }
   return config;
 }, (error) => {

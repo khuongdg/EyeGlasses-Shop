@@ -1,5 +1,6 @@
 const ImportReceipt = require('../models/ImportReceipt');
 const Variant = require('../models/Variant');
+const Company = require('../models/Company');
 const invoiceConnection = require('../database/invoiceConnection');
 
 /**
@@ -30,6 +31,7 @@ exports.createImportReceipt = async (payload) => {
     try {
         await session.withTransaction(async () => {
             const importCode = await generateImportCode();
+            const activeCompany = await Company.findOne({ isActive: true }).session(session);
 
             // 1. Cập nhật tồn kho cho từng sản phẩm
             for (const item of payload.items) {
@@ -45,6 +47,13 @@ exports.createImportReceipt = async (payload) => {
                 importCode,
                 staffId: payload.staffId,
                 staffName: payload.staffName,
+                companyInfo: activeCompany ? {
+                    name: activeCompany.name,
+                    phone: activeCompany.phone,
+                    address: activeCompany.address,
+                    email: activeCompany.email,
+                    taxCode: activeCompany.taxCode
+                } : null,
                 items: payload.items,
                 totalQuantity: payload.totalQuantity,
                 totalAmount: payload.totalAmount,

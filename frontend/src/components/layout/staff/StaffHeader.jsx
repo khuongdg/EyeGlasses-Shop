@@ -40,6 +40,7 @@ const StaffHeader = ({ collapsed, setCollapsed }) => {
         {
             key: 'logout',
             label: 'Đăng xuất',
+            title: null,
             icon: <LogoutOutlined />,
             danger: true,
             onClick: async () => {
@@ -53,7 +54,7 @@ const StaffHeader = ({ collapsed, setCollapsed }) => {
             }
         },
         { type: 'divider' },
-        { key: 'cp', label: 'Đổi mật khẩu', icon: <KeyOutlined />, onClick: () => setIsModalOpen(true) },
+        { key: 'cp', label: 'Đổi mật khẩu', title: null, icon: <KeyOutlined />, onClick: () => setIsModalOpen(true) },
     ];
 
     return (

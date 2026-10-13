@@ -8,7 +8,7 @@ const { clearCachePattern } = require('../services/cacheService');
 const clearCustomerCache = async (req, res, next) => {
   res.on('finish', () => {
     if (res.statusCode >= 200 && res.statusCode < 300) {
-      clearCachePattern('cache:/api/customers*').catch(() => {});
+      clearCachePattern('cache:*:/api/customers*').catch(() => {});
     }
   });
   next();

@@ -939,7 +939,6 @@ const Products = () => {
                     <Form.Item
                         label="Thương hiệu"
                         name="brand"
-                        initialValue='Christian DG'
                         rules={[{ required: true, message: 'Nhập thương hiệu' }]}
                     >
                         <Input />

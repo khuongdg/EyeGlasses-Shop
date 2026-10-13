@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Modal, Form, Input, message, Divider, Layout, Dropdown, Avatar, Button, Space, Typography } from 'antd';
+import { Modal, Form, Input, message, Layout, Dropdown, Avatar, Button, Space, Typography, Tag } from 'antd';
 import {
   UserOutlined,
   LogoutOutlined,
   MenuUnfoldOutlined,
   MenuFoldOutlined,
   LockOutlined,
-  KeyOutlined
+  KeyOutlined,
+  ShopOutlined
 } from '@ant-design/icons';
 import { changePassword, logout } from '../../../services/authService';
 
@@ -18,11 +19,11 @@ const AdminHeader = ({ collapsed, setCollapsed }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
-  // Xử lý gọi API đổi mật khẩu
+  const companyName = localStorage.getItem('companyName') || 'Mắt Kính Thuận Thiên';
+
   const handleChangePassword = async (values) => {
     setLoading(true);
     try {
-      // Logic gửi oldPassword và newPassword lên backend
       await changePassword({
         currentPassword: values.currentPassword,
         newPassword: values.newPassword
@@ -47,11 +48,11 @@ const AdminHeader = ({ collapsed, setCollapsed }) => {
     window.location.href = '/login';
   };
 
-  // Danh sách menu trong Dropdown
   const items = [
     {
       key: 'logout',
       label: 'Đăng xuất',
+      title: null,
       icon: <LogoutOutlined />,
       danger: true,
       onClick: handleLogout
@@ -62,6 +63,7 @@ const AdminHeader = ({ collapsed, setCollapsed }) => {
     {
       key: 'change-password',
       label: 'Đổi mật khẩu',
+      title: null,
       icon: <KeyOutlined />,
       onClick: () => setIsModalOpen(true) 
     },
@@ -80,15 +82,18 @@ const AdminHeader = ({ collapsed, setCollapsed }) => {
         zIndex: 1
       }}
     >
-      {/* Nút hamburger để thu gọn/mở rộng Sidebar */}
-      <Button
-        type="text"
-        icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-        onClick={() => setCollapsed(!collapsed)}
-        style={{ fontSize: 18, width: 64, height: 64 }}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Button
+          type="text"
+          icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+          onClick={() => setCollapsed(!collapsed)}
+          style={{ fontSize: 18, width: 64, height: 64 }}
+        />
+        <Tag icon={<ShopOutlined />} color="blue" style={{ fontSize: 14, padding: '4px 10px', borderRadius: 6 }}>
+          {companyName}
+        </Tag>
+      </div>
 
-      {/* User dropdown hiển thị thông tin admin và các tùy chọn */}
       <Dropdown menu={{ items }} placement="bottomRight" arrow>
         <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '0 8px' }}>
           <Avatar
@@ -99,7 +104,6 @@ const AdminHeader = ({ collapsed, setCollapsed }) => {
         </div>
       </Dropdown>
 
-      {/* Modal Đổi mật khẩu */}
       <Modal
         title={
           <Space>
@@ -108,7 +112,7 @@ const AdminHeader = ({ collapsed, setCollapsed }) => {
           </Space>
         }
         open={isModalOpen}
-        onOk={() => form.submit()} // Kích hoạt submit form
+        onOk={() => form.submit()}
         onCancel={() => {
           setIsModalOpen(false);
           form.resetFields();
@@ -116,7 +120,7 @@ const AdminHeader = ({ collapsed, setCollapsed }) => {
         confirmLoading={loading}
         okText="Cập nhật"
         cancelText="Hủy"
-        destroyOnClose // Xóa dữ liệu form khi đóng modal
+        destroyOnClose
       >
         <Form
           form={form}

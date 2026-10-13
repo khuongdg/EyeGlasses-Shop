@@ -15,12 +15,14 @@ const ImportPrintTemplate = React.forwardRef(({ data }, ref) => {
         { title: 'Thành tiền', render: (r) => (r.quantity * r.importPrice).toLocaleString(), align: 'right' },
     ];
 
+    const companyName = data.companyInfo?.name || localStorage.getItem('companyName') || 'Tên Công Ty';
+
     return (
         <div ref={ref} style={{ padding: '40px', color: '#000' }}>
             {/* Header Phiếu */}
             <Row justify="space-between" align="middle">
                 <Col span={16}>
-                    <Text strong>Công ty TNHH Mắt Kính Thuận Thiên Phát</Text> <br />  
+                    <Text strong style={{ fontSize: 16 }}>{companyName}</Text> <br />  
                     <Text strong>Mã phiếu: {data.importCode}</Text> <br />
                     <Text>Ngày nhập: {new Date(data.createdAt).toLocaleString('vi-VN')}</Text>
                 </Col>

@@ -48,9 +48,12 @@ import { getStaffs } from '../../services/staffService';
 import { getVariants, getVariantBySku } from '../../services/variantService';
 import { Form } from 'antd';
 
+const getTenantSlug = () => localStorage.getItem('tenantSlug') || 'thuanthien';
+
 const loadCache = (key) => {
     try {
-        const item = localStorage.getItem(key);
+        const slug = getTenantSlug();
+        const item = localStorage.getItem(`${key}_${slug}`);
         return item ? JSON.parse(item) : [];
     } catch {
         return [];
@@ -130,7 +133,10 @@ const Invoices = () => {
         try {
             const res = await getInvoices(params);
             setInvoices(res.data.data);
-            try { localStorage.setItem('cached_invoices', JSON.stringify(res.data.data)); } catch {}
+            try { 
+                const slug = getTenantSlug();
+                localStorage.setItem(`cached_invoices_${slug}`, JSON.stringify(res.data.data)); 
+            } catch {}
             setPagination({
                 current: res.data.page || params.page || 1,
                 pageSize: res.data.limit || params.limit || 10,
@@ -154,13 +160,21 @@ const Invoices = () => {
             setStaffs(staffRes.data.data);
             setVariants(varRes.data.data);
             try {
-                localStorage.setItem('cached_customers', JSON.stringify(cusRes.data.data));
-                localStorage.setItem('cached_staffs', JSON.stringify(staffRes.data.data));
-                localStorage.setItem('cached_variants', JSON.stringify(varRes.data.data));
+                const slug = getTenantSlug();
+                localStorage.setItem(`cached_customers_${slug}`, JSON.stringify(cusRes.data.data));
+                localStorage.setItem(`cached_staffs_${slug}`, JSON.stringify(staffRes.data.data));
+                localStorage.setItem(`cached_variants_${slug}`, JSON.stringify(varRes.data.data));
             } catch {}
         } catch {
             message.error('Lỗi tải dữ liệu danh mục');
         }
+    };
+
+    const handleOpenSkuModal = (openVal) => {
+        if (openVal) {
+            fetchInitialData();
+        }
+        setIsSkuModalOpen(openVal);
     };
 
     const fetchDraftsList = async () => {
@@ -422,7 +436,7 @@ const Invoices = () => {
             form.resetFields();
             setIsFormModified(false);
             setCurrentEditingDraftId(null);
-            fetchInvoices(1);
+            fetchInvoices({ ...queryParams, page: 1 });
         } catch (err) {
             if (err.errorFields) return;
             message.error(err.response?.data?.message || 'Không thể tạo phiếu xuất');
@@ -668,6 +682,7 @@ const Invoices = () => {
                         type="primary"
                         icon={<PlusOutlined />}
                         onClick={() => {
+                            fetchInitialData();
                             form.resetFields();
                             setIsFormModified(false);
                             setOpenModal(true);
@@ -784,7 +799,7 @@ const Invoices = () => {
                 calculateTotals={calculateTotals}
                 updateActiveDraft={updateActiveDraft}
                 setIsFormModified={setIsFormModified}
-                setIsSkuModalOpen={setIsSkuModalOpen}
+                setIsSkuModalOpen={handleOpenSkuModal}
                 setIsQrModalOpen={setIsQrModalOpen}
                 watchItems={watchItems}
                 watchTotalQty={watchTotalQty}

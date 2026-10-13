@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const slugify = require('slugify');
-const invoiceConnection = require('../database/invoiceConnection');
+const { createTenantModelProxy } = require('../database/tenantManager');
 
 const ProductSchema = new mongoose.Schema(
   {
@@ -23,4 +23,4 @@ ProductSchema.pre('save', function () {
 
 ProductSchema.index({ name: 'text' });
 
-module.exports = invoiceConnection.model('Product', ProductSchema);
+module.exports = createTenantModelProxy('Product', ProductSchema);

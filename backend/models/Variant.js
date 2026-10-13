@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const invoiceConnection = require('../database/invoiceConnection');
+const { createTenantModelProxy } = require('../database/tenantManager');
 
 const VariantSchema = new mongoose.Schema(
     {
@@ -23,4 +23,4 @@ VariantSchema.index(
     { unique: true }
 );
 
-module.exports = invoiceConnection.model('Variant', VariantSchema);
+module.exports = createTenantModelProxy('Variant', VariantSchema);

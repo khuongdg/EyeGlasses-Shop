@@ -1,22 +1,23 @@
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
+const { tenantStorage, preloadTenantConnections } = require('./database/tenantManager');
 
 const app = express();
 
 // Cấu hình CORS cho phép gửi nhận cookie (credentials: true)
 const allowedOrigins = [
   'http://localhost:5173',
-  'http://localhost:3000',
   'http://localhost:5000',
   'https://eye-glasses-shop.vercel.app'
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Cho phép requests không có origin (như curl hoặc mobile apps)
     if (!origin) return callback(null, true);
     const isAllowed = allowedOrigins.includes(origin) || 
                       /^http:\/\/localhost(:\d+)?$/.test(origin) || 
@@ -50,6 +51,44 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(bodyParser.json());
+
+// Global Multi-Tenant Context Resolver Middleware
+// Tự động phân luồng Database context cho TẤT CẢ các API request (kể cả GET/Public)
+app.use((req, res, next) => {
+  let dbName = 'invoice_db';
+  let tenantSlug = 'thuanthien';
+
+  // 1. Đọc từ Authorization Bearer Token nếu có
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'glassshop_secret_key_2026');
+      if (decoded.dbName) dbName = decoded.dbName;
+      if (decoded.tenantSlug) tenantSlug = decoded.tenantSlug;
+      req.user = decoded;
+    } catch (err) {
+      // Ignored invalid token on public routes
+    }
+  }
+
+  // 2. Đọc từ Custom Header nếu có
+  if (req.headers['x-tenant-id']) {
+    const headerSlug = req.headers['x-tenant-id'];
+    if (headerSlug === 'glassshop') {
+      dbName = 'glass_shop_db';
+      tenantSlug = 'glassshop';
+    } else if (headerSlug === 'thuanthien') {
+      dbName = 'invoice_db';
+      tenantSlug = 'thuanthien';
+    }
+  }
+
+  // Chạy toàn bộ xử lý Request trong context Database tương ứng
+  tenantStorage.run({ dbName, tenantSlug }, () => {
+    next();
+  });
+});
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -103,7 +142,7 @@ const swaggerOptions = {
       },
     },
   },
-  apis: ['./routes/*.js'], // Quét tài liệu mô tả từ các file route
+  apis: ['./routes/*.js'],
 };
 
 const swaggerDocs = swaggerJsdoc(swaggerOptions);
@@ -111,4 +150,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  // Mở kết nối trước cho tất cả các Tenant DBs để log hiển thị đầy đủ ngay khi khởi động
+  preloadTenantConnections();
 });

@@ -1,41 +1,49 @@
 import { Button, Form, Input, Card, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { login } from '../services/authService';
-import { useEffect, useState } from 'react'; // Thêm useState
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false); // Quản lý trạng thái nút bấm
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
     if (token && role) {
-      // Chuyển hướng mượt mà bằng navigate
       navigate(role === 'ADMIN' ? '/admin' : '/staff');
     }
   }, [navigate]);
 
   const onFinish = async (values) => {
-    setLoading(true); // Bắt đầu load
+    setLoading(true);
     try {
       const res = await login(values);
       const { token, user } = res.data.data;
 
       localStorage.setItem('token', token);
       localStorage.setItem('role', user.role);
+      localStorage.setItem('companyName', user.companyName || 'Mắt Kính Thuận Thiên');
+      localStorage.setItem('tenantSlug', user.tenantSlug || 'thuanthien');
 
-      message.success('Đăng nhập thành công');
+      // Xóa sạch cache cũ của phiên đăng nhập trước đó
+      localStorage.removeItem('cached_customers');
+      localStorage.removeItem('cached_staffs');
+      localStorage.removeItem('cached_variants');
+      localStorage.removeItem('cached_invoices');
+      localStorage.removeItem('is_invoice_modal_open');
+      localStorage.removeItem('current_invoice_draft');
 
-      // Chuyển hướng dựa trên quyền hạn
+      message.success(`Đăng nhập thành công (${user.companyName || 'Thuận Thiên'})`);
+
       navigate(user.role === 'ADMIN' ? '/admin' : '/staff');
     } catch (error) {
       message.error(
         error.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản.'
       );
     } finally {
-      setLoading(false); // Kết thúc load
+      setLoading(false);
     }
   };
 
@@ -43,7 +51,7 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-100 px-4">
       <Card className="w-full max-w-sm shadow-xl rounded-xl border border-slate-200">
         <div className="mb-6 text-center">
-          <div className="text-2xl font-bold text-slate-800">Thuan Thien EyeGlasses</div>
+          <div className="text-2xl font-bold text-slate-800">EyeGlasses Management</div>
           <div className="text-sm text-slate-500 mt-1">Hệ thống quản trị cửa hàng kính mắt</div>
         </div>
 
@@ -85,7 +93,7 @@ const Login = () => {
         </Form>
 
         <div className="mt-6 text-center text-xs text-slate-400">
-          © 2026 Thuan Thien EyeGlasses Shop
+          © 2026 EyeGlasses Shop System
         </div>
       </Card>
     </div>

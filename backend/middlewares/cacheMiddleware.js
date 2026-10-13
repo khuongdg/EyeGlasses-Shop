@@ -1,7 +1,8 @@
 const { getCache, setCache } = require('../services/cacheService');
+const { getActiveDbName } = require('../database/tenantManager');
 
 /**
- * Express middleware to cache GET requests for a specified duration
+ * Express middleware to cache GET requests for a specified duration per tenant
  * @param {number} ttlSeconds Cache expiration time in seconds (default: 300 = 5 minutes)
  */
 const cacheMiddleware = (ttlSeconds = 300) => {
@@ -11,7 +12,8 @@ const cacheMiddleware = (ttlSeconds = 300) => {
       return next();
     }
 
-    const key = `cache:${req.baseUrl}${req.path}:${JSON.stringify(req.query)}`;
+    const dbName = getActiveDbName();
+    const key = `cache:${dbName}:${req.baseUrl}${req.path}:${JSON.stringify(req.query)}`;
 
     try {
       const cachedData = await getCache(key);

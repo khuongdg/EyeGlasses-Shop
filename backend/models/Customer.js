@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const invoiceConnection = require('../database/invoiceConnection');
+const { createTenantModelProxy } = require('../database/tenantManager');
 
 const CustomerSchema = new mongoose.Schema(
   {
@@ -14,4 +14,4 @@ const CustomerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = invoiceConnection.model('Customer', CustomerSchema);
+module.exports = createTenantModelProxy('Customer', CustomerSchema);

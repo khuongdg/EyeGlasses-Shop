@@ -96,9 +96,13 @@ const ImportGoods = () => {
                     throw new Error("Không tìm thấy sản phẩm nào khớp trong hệ thống. Hãy chắc chắn bạn đã thực hiện bước Import tạo sản phẩm ở trang Sản phẩm trước.");
                 }
 
-                // 3. Đẩy toàn bộ dữ liệu sạch thu thập được trực tiếp lên form giao diện
-                form.setFieldsValue({ items: formItems });
-                message.success(`Đã đồng bộ tự động thành công ${formItems.length} sản phẩm nhập kho!`);
+                // 3. Đẩy toàn bộ dữ liệu sạch thu thập được trực tiếp lên form giao diện (Nối tiếp dòng thủ công đã có)
+                const currentItems = form.getFieldValue('items') || [];
+                const existingItems = currentItems.filter(item => item && item.variantId);
+                const mergedItems = [...existingItems, ...formItems];
+
+                form.setFieldsValue({ items: mergedItems });
+                message.success(`Đã thêm thành công ${formItems.length} sản phẩm từ file Excel!`);
 
                 // Nếu phát hiện SKU nối chuỗi bị lệch danh mục thì báo cáo ngay
                 if (notFoundSkus.length > 0) {
