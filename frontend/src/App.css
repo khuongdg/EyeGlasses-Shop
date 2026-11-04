@@ -38,6 +38,16 @@ html, body, button, input, select, textarea,
     border-radius: 100px !important;
 }
 
+/* Đường kẻ ngăn cách (divider) giữa các lựa chọn trong tất cả dropdown Select */
+.ant-select-dropdown .ant-select-item-option {
+    margin-top: 2px !important;
+    margin-bottom: 0 !important;
+}
+
+.ant-select-dropdown .ant-select-item-option:not(:last-child) {
+    border-bottom: 1px solid #e8e8e8 !important;
+}
+
 /* Cấu hình tối ưu khi in phiếu xuất/nhập kho */
 @media print {
     /* Ngăn chặn hàng tổng cộng (tfoot) lặp lại ở cuối mỗi trang khi bảng dài */

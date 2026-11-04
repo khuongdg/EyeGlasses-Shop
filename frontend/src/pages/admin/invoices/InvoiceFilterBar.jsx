@@ -1,9 +1,9 @@
 import React from 'react';
-import { Row, Col, Input, Select, DatePicker, Typography } from 'antd';
+import { Row, Col, Input, Select, Typography } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 
 const { Text } = Typography;
-const { RangePicker } = DatePicker;
 
 const InvoiceFilterBar = ({
     keyword,
@@ -36,20 +36,32 @@ const InvoiceFilterBar = ({
                 {/* DATE RANGE */}
                 <Col xs={24} sm={12} md={8} lg={8}>
                     <Text strong className="block mb-1">Khoảng thời gian</Text>
-                    <RangePicker
+                    <Select
                         className="w-full"
-                        format="DD/MM/YYYY"
                         style={{ borderRadius: '20px' }}
-                        onChange={(dates) => {
+                        value={queryParams.timeRange || 1}
+                        onChange={(val) => {
+                            let dateFrom = null;
+                            let dateTo = null;
+                            if (val && val !== 'ALL') {
+                                dateFrom = dayjs().subtract(Number(val), 'month').format('YYYY-MM-DD');
+                                dateTo = dayjs().format('YYYY-MM-DD');
+                            }
                             const newParams = {
                                 ...queryParams,
                                 page: 1,
-                                dateFrom: dates ? dates[0].format('YYYY-MM-DD') : null,
-                                dateTo: dates ? dates[1].format('YYYY-MM-DD') : null
+                                timeRange: val,
+                                dateFrom,
+                                dateTo
                             };
                             setQueryParams(newParams);
                             fetchInvoices(newParams);
                         }}
+                        options={[
+                            { value: 1, label: '1 tháng' },
+                            { value: 3, label: '3 tháng' },
+                            { value: 'ALL', label: 'Tất cả' }
+                        ]}
                     />
                 </Col>
 

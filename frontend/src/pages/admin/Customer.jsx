@@ -35,6 +35,7 @@ import {
   restoreCustomer,
   aiBulkImport
 } from '../../services/customerService';
+import VietnamAddressInput from '../../components/VietnamAddressInput';
 
 const Customer = () => {
   const [customers, setCustomers] = useState([]);
@@ -100,7 +101,9 @@ const Customer = () => {
         { header: 'Số điện thoại', key: 'phone', width: 18 },
         { header: 'Email', key: 'email', width: 25 },
         { header: 'Mã số thuế', key: 'taxCode', width: 18 },
-        { header: 'Địa chỉ', key: 'address', width: 35 },
+        { header: 'Tỉnh / Thành phố', key: 'province', width: 24 },
+        { header: 'Phường / Xã', key: 'ward', width: 22 },
+        { header: 'Địa chỉ cụ thể', key: 'street', width: 32 },
       ];
       worksheet1.spliceRows(1, 1);
 
@@ -109,7 +112,9 @@ const Customer = () => {
         'Số điện thoại',
         'Email',
         'Mã số thuế',
-        'Địa chỉ'
+        'Tỉnh / Thành phố',
+        'Phường / Xã',
+        'Địa chỉ cụ thể'
       ]);
       headerRow.eachCell((cell) => {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } };
@@ -125,9 +130,9 @@ const Customer = () => {
       headerRow.height = 25;
 
       const sampleData = [
-        ['Nguyễn Văn A', '0901234567', 'nguyenvana@gmail.com', '0312345678', '123 Nguyễn Trãi, Q.5, TP.HCM'],
-        ['Trần Thị B', '0987654321', 'tranthib@gmail.com', '', '456 Lê Hồng Phong, Q.10, TP.HCM'],
-        ['Mắt Kính Việt Long', '0912345678', 'contact@vietlong.com', '0309876543', '789 Trần Hưng Đạo, Tây Ninh']
+        ['Nguyễn Văn A', '0901234567', 'nguyenvana@gmail.com', '0312345678', 'Thành phố Hồ Chí Minh', 'Phường Bến Thành', '123 Nguyễn Trãi'],
+        ['Trần Thị B', '0987654321', 'tranthib@gmail.com', '', 'Thành phố Hà Nội', 'Phường Dịch Vọng', '456 Cầu Giấy'],
+        ['Mắt Kính Việt Long', '0912345678', 'contact@vietlong.com', '0309876543', 'Tỉnh Tây Ninh', 'Phường 1', '789 Trần Hưng Đạo']
       ];
 
       sampleData.forEach((row) => {
@@ -161,9 +166,10 @@ const Customer = () => {
       const guidelines = [
         ['1. Tên khách hàng:', 'Bắt buộc phải điền tên khách hàng hoặc tên công ty.'],
         ['2. Số điện thoại:', 'Bắt buộc điền SĐT gồm 10 chữ số (Ví dụ: 0901234567). Hệ thống sẽ tự động bù số 0 đầu nếu Excel làm mất.'],
-        ['3. Email, Mã số thuế & Địa chỉ:', 'Tùy chọn. Có thể để trống nếu chưa có thông tin.'],
-        ['4. Lưu ý về tên cột:', 'TUYỆT ĐỐI không thay đổi tiêu đề dòng 1 ở Sheet 1 ("Tên khách hàng", "Số điện thoại", "Email", "Mã số thuế", "Địa chỉ").'],
-        ['5. Lưu ý dữ liệu mẫu:', 'Dữ liệu ở Sheet 1 chỉ là mẫu tham khảo, hãy thay thế bằng thông tin thực tế trước khi tải lên hệ thống.']
+        ['3. Email & Mã số thuế:', 'Tùy chọn. Có thể để trống nếu chưa có thông tin.'],
+        ['4. Địa chỉ khách hàng:', 'Chia thành 3 cột: "Tỉnh / Thành phố", "Phường / Xã" và "Địa chỉ cụ thể" (Số nhà, tên đường). Hệ thống sẽ tự động kết hợp thành địa chỉ hoàn chỉnh.'],
+        ['5. Lưu ý về tên cột:', 'TUYỆT ĐỐI không thay đổi tiêu đề dòng 1 ở Sheet 1 ("Tên khách hàng", "Số điện thoại", "Email", "Mã số thuế", "Tỉnh / Thành phố", "Phường / Xã", "Địa chỉ cụ thể").'],
+        ['6. Lưu ý dữ liệu mẫu:', 'Dữ liệu ở Sheet 1 chỉ là mẫu tham khảo, hãy thay thế bằng thông tin thực tế trước khi tải lên hệ thống.']
       ];
 
       guidelines.forEach((guideline) => {
@@ -204,12 +210,24 @@ const Customer = () => {
             phone = '0' + phone;
           }
 
+          // Xử lý lấy địa chỉ từ các cột phân tách mới hoặc cột địa chỉ cũ
+          const province = (item['Tỉnh / Thành phố'] || item['Tỉnh/Thành phố'] || item['Tỉnh'] || item['Thành phố'] || item['Province'])?.toString().trim();
+          const ward = (item['Phường / Xã'] || item['Phường/Xã'] || item['Phường'] || item['Xã'] || item['Ward'])?.toString().trim();
+          const street = (item['Địa chỉ cụ thể'] || item['Số nhà'] || item['Số nhà, tên đường'] || item['Street'])?.toString().trim();
+
+          let address = '';
+          if (province || ward || street) {
+            address = [street, ward, province].filter(Boolean).join(', ');
+          } else {
+            address = (item['Địa chỉ'] || item['Address'])?.toString().trim() || '';
+          }
+
           return {
             name: (item['Tên khách hàng'] || item['Khách hàng'] || item['Name'])?.toString().trim(),
             phone: phone,
             email: item['Email']?.toString().trim(),
             taxCode: (item['Mã số thuế'] || item['MST'] || item['TaxCode'])?.toString().trim(),
-            address: (item['Địa chỉ'] || item['Address'])?.toString().trim(),
+            address: address,
             originalLine: index + 2
           };
         });
@@ -601,11 +619,16 @@ const Customer = () => {
         title={editing ? 'Cập nhật khách hàng' : 'Tạo khách hàng'}
         open={openModal}
         onOk={handleSubmit}
-        onCancel={() => setOpenModal(false)}
+        onCancel={() => {
+          setOpenModal(false);
+          setEditing(null);
+          form.resetFields();
+        }}
         okText="Lưu"
         cancelText="Huỷ"
         width="90%"
-        style={{ maxWidth: 600 }}
+        style={{ maxWidth: 640 }}
+        destroyOnClose
       >
         <Form layout="vertical" form={form}>
           <Form.Item
@@ -654,7 +677,7 @@ const Customer = () => {
           </Form.Item>
 
           <Form.Item label="Địa chỉ" name="address">
-            <Input.TextArea rows={2} />
+            <VietnamAddressInput placeholder="Số nhà, tên đường, khu phố..." />
           </Form.Item>
         </Form>
       </Modal>

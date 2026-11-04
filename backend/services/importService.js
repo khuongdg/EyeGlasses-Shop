@@ -43,8 +43,14 @@ exports.createImportReceipt = async (payload) => {
             }
 
             // 2. Lưu phiếu nhập
+            const itemsWithBatch = (payload.items || []).map(item => ({
+                ...item,
+                batchCode: item.batchCode || payload.batchCode
+            }));
+
             const newReceipt = new ImportReceipt({
                 importCode,
+                batchCode: payload.batchCode,
                 staffId: payload.staffId,
                 staffName: payload.staffName,
                 companyInfo: activeCompany ? {
@@ -54,7 +60,7 @@ exports.createImportReceipt = async (payload) => {
                     email: activeCompany.email,
                     taxCode: activeCompany.taxCode
                 } : null,
-                items: payload.items,
+                items: itemsWithBatch,
                 totalQuantity: payload.totalQuantity,
                 totalAmount: payload.totalAmount,
                 supplier: payload.supplier,
@@ -72,11 +78,23 @@ exports.createImportReceipt = async (payload) => {
 exports.getImportReceipts = async ({ page = 1, limit = 10, keyword }) => {
     const filter = { isActive: true };
     if (keyword) {
-        filter.importCode = { $regex: keyword, $options: 'i' };
+        filter.$or = [
+            { importCode: { $regex: keyword, $options: 'i' } },
+            { batchCode: { $regex: keyword, $options: 'i' } },
+            { supplier: { $regex: keyword, $options: 'i' } }
+        ];
     }
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
-        ImportReceipt.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        ImportReceipt.find(filter)
+            .populate({
+                path: 'items.variantId',
+                populate: { path: 'productId' }
+            })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean(),
         ImportReceipt.countDocuments(filter)
     ]);
     return { data, total, page, limit };

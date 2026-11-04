@@ -97,12 +97,13 @@ exports.restoreProduct = async (req, res) => {
 
 exports.searchProducts = async (req, res) => {
     try {
-        const { keyword, page = 1, limit = 10 } = req.query;
+        const { keyword, page = 1, limit = 10, isActive } = req.query;
 
         const result = await productService.searchProducts({
             keyword,
             page: Number(page),
-            limit: Number(limit)
+            limit: Number(limit),
+            isActive
         });
 
         res.status(200).json({

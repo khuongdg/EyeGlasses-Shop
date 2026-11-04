@@ -91,12 +91,14 @@ exports.cancelInvoice = async (req, res) => {
 
 exports.getDebts = async (req, res) => {
   try {
-    const { keyword, status, page, limit } = req.query;
+    const { keyword, status, page, limit, dateFrom, dateTo } = req.query;
     const result = await invoiceService.getDebts({
       keyword,
       status,
       page: Number(page) || 1,
-      limit: Number(limit) || 10
+      limit: Number(limit) || 10,
+      dateFrom,
+      dateTo
     });
     res.json({ success: true, ...result });
   } catch (error) {

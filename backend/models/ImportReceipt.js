@@ -3,6 +3,7 @@ const { createTenantModelProxy } = require('../database/tenantManager');
 
 const ImportReceiptSchema = new mongoose.Schema({
     importCode: { type: String, unique: true }, // PNK/YYMMDD/XXXX
+    batchCode: { type: String, trim: true },    // Số lô (VD: T06-2026)
     staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' },
     staffName: String, // Snapshot tên nhân viên
 
@@ -19,6 +20,7 @@ const ImportReceiptSchema = new mongoose.Schema({
         variantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Variant' },
         sku: String,
         originCountry: String,
+        batchCode: String, // Số lô đợt này
         quantity: { type: Number, required: true },
         importPrice: { type: Number, required: true }, // Giá vốn đợt này
         totalItemAmount: Number // quantity * importPrice

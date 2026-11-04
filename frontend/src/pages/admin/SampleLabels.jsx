@@ -430,6 +430,9 @@ const SampleLabels = () => {
                                     onClick: handleOpenPrintAllModal
                                 },
                                 {
+                                    type: 'divider'
+                                },
+                                {
                                     key: 'custom',
                                     label: 'In tem tuỳ chọn',
                                     disabled: printLoading || submitLoading,

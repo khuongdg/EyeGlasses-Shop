@@ -100,6 +100,9 @@ const ImportDetails = ({ open, onClose, data }) => {
                     <Descriptions.Item label="Mã phiếu nhập">
                         <Text strong style={{ color: '#1677ff' }}>{data.importCode}</Text>
                     </Descriptions.Item>
+                    <Descriptions.Item label="Số lô">
+                        {data.batchCode ? <Tag color="blue">{data.batchCode}</Tag> : 'N/A'}
+                    </Descriptions.Item>
                     <Descriptions.Item label="Ngày tạo">
                         {new Date(data.createdAt).toLocaleString('vi-VN')}
                     </Descriptions.Item>

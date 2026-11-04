@@ -1,0 +1,12 @@
+{
+  "name": "glass-shop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hệ thống quản lý bán hàng Mắt Kính Thuận Thiên",
+  "scripts": {
+    "dev": "echo 'Vui lòng chọn chạy backend hoặc frontend:' && echo '  - Backend:  npm run dev:backend' && echo '  - Frontend: npm run dev:frontend'",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev"
+  }
+}
+

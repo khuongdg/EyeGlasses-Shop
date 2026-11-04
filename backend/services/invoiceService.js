@@ -319,9 +319,14 @@ exports.updateDebtPayment = async (debtId, paymentData) => {
 /**
  * Lấy danh sách công nợ có lọc
  */
-exports.getDebts = async ({ keyword, status, page = 1, limit = 10 }) => {
+exports.getDebts = async ({ keyword, status, page = 1, limit = 10, dateFrom, dateTo }) => {
   const filter = { status: { $ne: 'CANCELLED' } };
   if (status) filter.status = status;
+  if (dateFrom || dateTo) {
+    filter.createdAt = {};
+    if (dateFrom) filter.createdAt.$gte = new Date(new Date(dateFrom).setHours(0, 0, 0, 0));
+    if (dateTo) filter.createdAt.$lte = new Date(new Date(dateTo).setHours(23, 59, 59, 999));
+  }
   if (keyword) {
     const matchingInvoices = await Invoice.find({
       invoiceCode: { $regex: keyword, $options: 'i' }

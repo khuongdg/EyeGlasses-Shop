@@ -23,6 +23,7 @@ import {
     deleteStaff,
     restoreStaff
 } from '../../services/staffService';
+import VietnamAddressInput from '../../components/VietnamAddressInput';
 
 const Staff = () => {
     const [staffs, setStaffs] = useState([]);
@@ -394,11 +395,16 @@ const Staff = () => {
                 title={editing ? 'Cập nhật nhân viên' : 'Tạo nhân viên'}
                 open={openModal}
                 onOk={handleSubmit}
-                onCancel={() => setOpenModal(false)}
+                onCancel={() => {
+                    setOpenModal(false);
+                    setEditing(null);
+                    form.resetFields();
+                }}
                 okText="Lưu"
                 cancelText="Huỷ"
                 width="90%"
-                style={{ maxWidth: 600 }}
+                style={{ maxWidth: 640 }}
+                destroyOnClose
             >
                 <Form layout="vertical" form={form}>
                     <Form.Item
@@ -435,7 +441,7 @@ const Staff = () => {
                         label="Địa chỉ"
                         name="address"
                     >
-                        <Input.TextArea rows={2} />
+                        <VietnamAddressInput placeholder="Số nhà, tên đường, khu dân cư..." />
                     </Form.Item>
                 </Form>
             </Modal>

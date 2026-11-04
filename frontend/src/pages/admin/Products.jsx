@@ -79,10 +79,25 @@ const Products = () => {
                 console.log("Dữ liệu thô:", rawData);
 
                 // AI Logic: Gộp các dòng trùng "Mã hàng" thành 1 sản phẩm có nhiều variant
+                // Hỗ trợ tự động lấp đầy (fill forward) khi người dùng gộp ô (Merge cells) cột Mã hàng
                 const groupedMap = new Map();
+                let lastProductCode = '';
+                let lastBrand = 'Christian DG';
+                let lastOrigin = 'PRC';
+                let lastUnit = 'Cây';
 
                 rawData.forEach(item => {
-                    const productName = String(item['Mã hàng'] || '').trim();
+                    let productName = String(item['Mã hàng'] || '').trim();
+                    if (productName) {
+                        lastProductCode = productName;
+                        if (item['Thương hiệu']) lastBrand = item['Thương hiệu'];
+                        if (item['Xuất xứ']) lastOrigin = item['Xuất xứ'];
+                        if (item['Đơn vị']) lastUnit = item['Đơn vị'];
+                    } else if (lastProductCode) {
+                        // Kế thừa giá trị khi ô Mã hàng được gộp ô (Merge cells)
+                        productName = lastProductCode;
+                    }
+
                     const color = String(item['Mã màu'] || item['Màu'] || '').trim().toUpperCase();
 
                     if (!productName) return;
@@ -90,8 +105,8 @@ const Products = () => {
                     if (!groupedMap.has(productName)) {
                         groupedMap.set(productName, {
                             name: productName,
-                            brand: item['Thương hiệu'] || 'Christian DG',
-                            originCountry: item['Xuất xứ'] || 'PRC',
+                            brand: item['Thương hiệu'] || lastBrand,
+                            originCountry: item['Xuất xứ'] || lastOrigin,
                             variants: []
                         });
                     }
@@ -100,7 +115,7 @@ const Products = () => {
                     product.variants.push({
                         sku: `${productName}_${color}`, // Tự động sinh SKU theo quy tắc
                         colorCode: color,
-                        unit: item['Đơn vị'] || 'Cây',
+                        unit: item['Đơn vị'] || lastUnit,
                         price: Number(item['Giá bán'] || item['Giá'] || 0),
                         inventory: 0
                     });
@@ -178,13 +193,20 @@ const Products = () => {
         ];
         sampleData.forEach(row => {
             const r = worksheet1.addRow(row);
-            [1, 2, 4, 5, 8].forEach(colIdx => r.getCell(colIdx).alignment = { horizontal: 'center' });
+            r.height = 24;
+            [1, 2, 3, 4, 5, 8].forEach(colIdx => r.getCell(colIdx).alignment = { horizontal: 'center', vertical: 'middle' });
             [6, 7].forEach(colIdx => {
                 r.getCell(colIdx).numFmt = '#,##0';
-                r.getCell(colIdx).alignment = { horizontal: 'right' };
+                r.getCell(colIdx).alignment = { horizontal: 'right', vertical: 'middle' };
             });
             r.eachCell(cell => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
         });
+
+        // Gộp các dòng có cùng Mã hàng trong file mẫu (giống lúc xuất file nhập hàng, không có số lô)
+        worksheet1.mergeCells('A2:A3'); // Mã hàng
+        worksheet1.mergeCells('C2:C3'); // Thương hiệu
+        worksheet1.mergeCells('D2:D3'); // Xuất xứ
+        worksheet1.mergeCells('E2:E3'); // Đơn vị
 
 
         // ================= SHEET 2: HƯỚNG DẪN & LƯU Ý =================
@@ -206,7 +228,7 @@ const Products = () => {
 
         // 2. Nội dung các quy tắc
         const guidelines = [
-            ['1. Quy tắc gộp sản phẩm:', 'Các dòng có cùng "Mã hàng" sẽ được hệ thống tự động gộp thành 1 sản phẩm cha. Đừng đổi tên mã hàng lung tung nhé.'],
+            ['1. Quy tắc gộp sản phẩm:', 'Các dòng có cùng "Mã hàng" có thể gộp ô (Merge cells) lại hoặc để riêng từng dòng. Hệ thống sẽ tự động gộp thành 1 sản phẩm cha có các biến thể màu tương ứng.'],
             ['2. Quy tắc sinh mã SKU:', 'Hệ thống tự động nối chuỗi theo dạng: [Mã hàng]_[Mã màu] (Ví dụ dòng 1 sẽ sinh ra SKU: 8619_C1).'],
             ['3. Màu sắc (Mã màu):', 'Có thể điền mã màu bằng chữ thường hoặc in hoa, hệ thống sẽ tự động chuyển tất cả về dạng in hoa khi import. (Ví dụ: c1 hoặc C1 đều đúng).'],
             ['4. Định dạng cột Giá:', 'Nhập số nguyên trực tiếp (Ví dụ: 150000), KHÔNG gõ thêm chữ "đ" hay "VND" bằng tay.'],

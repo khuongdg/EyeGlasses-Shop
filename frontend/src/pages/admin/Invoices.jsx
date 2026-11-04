@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import debounce from 'lodash/debounce';
+import dayjs from 'dayjs';
 import { useReactToPrint } from 'react-to-print';
 import {
     Table,
@@ -116,13 +117,17 @@ const Invoices = () => {
 
     const [queryParams, setQueryParams] = useState({
         keyword: '',
-        dateFrom: null,
-        dateTo: null,
+        timeRange: 1,
+        dateFrom: dayjs().subtract(1, 'month').format('YYYY-MM-DD'),
+        dateTo: dayjs().format('YYYY-MM-DD'),
         paymentMethod: null,
         isActive: null,
         page: 1,
         limit: 10
     });
+
+    const queryParamsRef = useRef(queryParams);
+    queryParamsRef.current = queryParams;
 
     const [keyword, setKeyword] = useState('');
     const screens = Grid.useBreakpoint();
@@ -297,7 +302,7 @@ const Invoices = () => {
     /* ================= TÌM KIẾM & PHÂN TRANG ================= */
     const debounceSearch = useRef(
         debounce((val) => {
-            const newParams = { ...queryParams, page: 1, keyword: val };
+            const newParams = { ...queryParamsRef.current, page: 1, keyword: val };
             setQueryParams(newParams);
             fetchInvoices(newParams);
         }, 500)

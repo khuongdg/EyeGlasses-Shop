@@ -14,21 +14,63 @@ exports.getAllProducts = async ({ page = 1, limit = 10, isActive, keyword }) => 
         filter.isActive = isActive === 'true' || isActive === true;
     }
 
-    if (keyword) {
+    let matchedVariantMap = {};
+
+    if (keyword && keyword.trim()) {
+        const keywordRegex = { $regex: keyword.trim(), $options: 'i' };
+
+        // 1. Tìm các Variant khớp với SKU hoặc Mã màu
+        const variantFilter = {
+            $or: [
+                { sku: keywordRegex },
+                { colorCode: keywordRegex }
+            ]
+        };
+        if (filter.isActive !== undefined) {
+            variantFilter.isActive = filter.isActive;
+        }
+
+        const matchedVariants = await Variant.find(variantFilter)
+            .select('_id productId sku colorCode price inventory isActive')
+            .lean();
+
+        matchedVariants.forEach(v => {
+            if (!v.productId) return;
+            const pid = v.productId.toString();
+            if (!matchedVariantMap[pid]) {
+                matchedVariantMap[pid] = [];
+            }
+            matchedVariantMap[pid].push(v);
+        });
+
+        const matchedProductIds = Object.keys(matchedVariantMap);
+
+        // 2. Tìm Product khớp Tên, Thương hiệu, Xuất xứ HOẶC có Variant khớp
         filter.$or = [
-            { name: { $regex: keyword, $options: 'i' } },
-            { brand: { $regex: keyword, $options: 'i' } },
-            { originCountry: { $regex: keyword, $options: 'i' } }
+            { name: keywordRegex },
+            { brand: keywordRegex },
+            { originCountry: keywordRegex },
+            { _id: { $in: matchedProductIds } }
         ];
     }
 
-    const [data, total] = await Promise.all([
+    const [products, total] = await Promise.all([
         Product.find(filter)
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limitNum),
+            .limit(limitNum)
+            .lean(),
         Product.countDocuments(filter)
     ]);
+
+    // 3. Đính kèm matchedVariants vào kết quả trả về để hiển thị trên bảng
+    const data = products.map(product => {
+        const pid = product._id.toString();
+        return {
+            ...product,
+            matchedVariants: matchedVariantMap[pid] || []
+        };
+    });
 
     return {
         data,
@@ -212,8 +254,8 @@ exports.restoreProduct = async (productId) => {
 };
 
 // SEARCH /api/products/search?keyword=
-exports.searchProducts = async ({ keyword, page = 1, limit = 10 }) => {
-    if (!keyword) {
+exports.searchProducts = async ({ keyword, page = 1, limit = 10, isActive }) => {
+    if (!keyword || !keyword.trim()) {
         return {
             data: [],
             total: 0
@@ -221,27 +263,44 @@ exports.searchProducts = async ({ keyword, page = 1, limit = 10 }) => {
     }
 
     const skip = (page - 1) * limit;
+    const keywordRegex = { $regex: keyword.trim(), $options: 'i' };
+
+    const variantFilter = {
+        $or: [
+            { sku: keywordRegex },
+            { colorCode: keywordRegex }
+        ]
+    };
+    if (isActive !== undefined && isActive !== 'undefined' && isActive !== '') {
+        variantFilter.isActive = isActive === 'true' || isActive === true;
+    }
 
     /* ================= 1. SEARCH VARIANT BY SKU ================= */
-    const variants = await Variant.find({
-        sku: { $regex: keyword, $options: 'i' },
-        isActive: true
-    })
+    const variants = await Variant.find(variantFilter)
         .populate('productId')
         .lean();
 
     const variantMap = {};
     variants.forEach(v => {
-        const pid = v.productId._id.toString();
+        if (!v.productId) return;
+        const pid = v.productId._id ? v.productId._id.toString() : v.productId.toString();
         if (!variantMap[pid]) variantMap[pid] = [];
         variantMap[pid].push(v);
     });
 
     /* ================= 2. SEARCH PRODUCT BY NAME ================= */
-    const productsByName = await Product.find({
-        name: { $regex: keyword, $options: 'i' },
-        isActive: true
-    }).lean();
+    const productFilter = {
+        $or: [
+            { name: keywordRegex },
+            { brand: keywordRegex },
+            { originCountry: keywordRegex }
+        ]
+    };
+    if (isActive !== undefined && isActive !== 'undefined' && isActive !== '') {
+        productFilter.isActive = isActive === 'true' || isActive === true;
+    }
+
+    const productsByName = await Product.find(productFilter).lean();
 
     /* ================= 3. MERGE RESULT ================= */
     const productMap = {};
@@ -255,10 +314,13 @@ exports.searchProducts = async ({ keyword, page = 1, limit = 10 }) => {
 
     Object.keys(variantMap).forEach(pid => {
         if (!productMap[pid]) {
-            productMap[pid] = {
-                ...variantMap[pid][0].productId,
-                matchedVariants: variantMap[pid]
-            };
+            const prod = variantMap[pid][0].productId;
+            if (prod) {
+                productMap[pid] = {
+                    ...(prod._id ? prod : {}),
+                    matchedVariants: variantMap[pid]
+                };
+            }
         } else {
             productMap[pid].matchedVariants = variantMap[pid];
         }

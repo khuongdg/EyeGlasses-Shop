@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import debounce from 'lodash/debounce';
+import dayjs from 'dayjs';
 import {
     Table, Tag, Button, Space, Modal, Form, Grid, Select,
     InputNumber, Input, message, Progress, Typography, Timeline, Card, Row, Col
@@ -25,16 +26,44 @@ const Debts = () => {
     const [totalPaid, setTotalPaid] = useState(0);
     const [keyword, setKeyword] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
+    const [timeRange, setTimeRange] = useState(1);
+
+    const statusFilterRef = useRef(statusFilter);
+    statusFilterRef.current = statusFilter;
+    const timeRangeRef = useRef(timeRange);
+    timeRangeRef.current = timeRange;
 
     const screens = useBreakpoint();
     const isMobile = !screens.md;
 
+    const getDateParams = (range) => {
+        if (!range || range === 'ALL') return { dateFrom: null, dateTo: null };
+        return {
+            dateFrom: dayjs().subtract(Number(range), 'month').format('YYYY-MM-DD'),
+            dateTo: dayjs().format('YYYY-MM-DD')
+        };
+    };
+
     /* ================= FETCH DATA ================= */
-    const fetchDebts = async (currentPage = page, currentPageSize = pageSize, searchKeyword = keyword, currentStatus = statusFilter) => {
+    const fetchDebts = async (
+        currentPage = page,
+        currentPageSize = pageSize,
+        searchKeyword = keyword,
+        currentStatus = statusFilterRef.current,
+        currentTimeRange = timeRangeRef.current
+    ) => {
         setLoading(true);
         try {
             const statusVal = currentStatus === 'ALL' ? null : currentStatus;
-            const res = await getDebts({ page: currentPage, limit: currentPageSize, keyword: searchKeyword, status: statusVal });
+            const { dateFrom, dateTo } = getDateParams(currentTimeRange);
+            const res = await getDebts({
+                page: currentPage,
+                limit: currentPageSize,
+                keyword: searchKeyword,
+                status: statusVal,
+                dateFrom,
+                dateTo
+            });
             setDebts(res.data.data);
             setTotal(res.data.total || 0);
             setTotalRemaining(res.data.totalRemaining || 0);
@@ -47,8 +76,8 @@ const Debts = () => {
     };
 
     useEffect(() => {
-        fetchDebts(page, pageSize, keyword, statusFilter);
-    }, [page, pageSize, statusFilter]);
+        fetchDebts(page, pageSize, keyword, statusFilter, timeRange);
+    }, [page, pageSize, statusFilter, timeRange]);
 
     const debounceSearch = useRef(
         debounce((value) => {
@@ -237,6 +266,21 @@ const Debts = () => {
                     }}
                     className="flex-1"
                     style={{ borderRadius: '20px' }}
+                />
+
+                <Select
+                    className="w-full sm:w-44"
+                    style={{ borderRadius: '20px' }}
+                    value={timeRange}
+                    onChange={(val) => {
+                        setTimeRange(val);
+                        setPage(1);
+                    }}
+                    options={[
+                        { value: 1, label: '1 tháng' },
+                        { value: 3, label: '3 tháng' },
+                        { value: 'ALL', label: 'Tất cả' }
+                    ]}
                 />
 
                 <Select

@@ -38,7 +38,8 @@ const ImportPrintTemplate = React.forwardRef(({ data }, ref) => {
             <Row gutter={24} style={{ marginBottom: 20 }}>
                 <Col span={12}>
                     <Text strong>Nhân viên nhập: </Text> <Text>{data.staffName}</Text> <br />
-                    <Text strong>Nhà cung cấp: </Text> <Text>{data.supplier || 'N/A'}</Text>
+                    <Text strong>Nhà cung cấp: </Text> <Text>{data.supplier || 'N/A'}</Text> <br />
+                    <Text strong>Số lô: </Text> <Text>{data.batchCode || 'N/A'}</Text>
                 </Col>
                 <Col span={12}>
                     <Text strong>Ghi chú: </Text> <Text>{data.note || '...'}</Text>
