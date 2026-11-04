@@ -19,10 +19,12 @@ const Login = () => {
     setLoading(true);
     try {
       const res = await login(values);
-      const { user } = res.data.data;
+      const { user, token } = res.data.data;
 
-      // Token được lưu tự động trong HttpOnly Cookie từ Server để chống XSS
-      localStorage.removeItem('token');
+      // Lưu token vào localStorage để đảm bảo tương thích 100% trên điện thoại (tránh việc Safari/Mobile chặn Third-Party Cookies giữa Vercel và Render)
+      if (token) {
+        localStorage.setItem('token', token);
+      }
       localStorage.setItem('role', user.role);
       localStorage.setItem('companyName', user.companyName || 'Mắt Kính Thuận Thiên');
       localStorage.setItem('tenantSlug', user.tenantSlug || 'thuanthien');

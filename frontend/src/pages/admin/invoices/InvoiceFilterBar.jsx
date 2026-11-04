@@ -71,21 +71,22 @@ const InvoiceFilterBar = ({
                     <Select
                         className="w-full"
                         style={{ borderRadius: '20px' }}
-                        value={queryParams.isActive === true ? 'ACTIVE' : queryParams.isActive === false ? 'INACTIVE' : 'ALL'}
+                        value={queryParams.status || 'ALL'}
                         onChange={(val) => {
-                            const newStatus = val === 'ACTIVE' ? true : (val === 'INACTIVE' ? false : null);
                             const newParams = {
                                 ...queryParams,
                                 page: 1,
-                                isActive: newStatus
+                                status: val === 'ALL' ? null : val
                             };
                             setQueryParams(newParams);
                             fetchInvoices(newParams);
                         }}
                         options={[
-                            { value: 'ALL', label: 'Tất cả' },
-                            { value: 'ACTIVE', label: 'Hoạt động' },
-                            { value: 'INACTIVE', label: 'Không hoạt động' }
+                            { value: 'ALL', label: 'Tất cả trạng thái' },
+                            { value: 'COMPLETED', label: 'Hoàn thành' },
+                            { value: 'PARTIAL', label: 'Trả một phần' },
+                            { value: 'UNPAID', label: 'Chưa trả' },
+                            { value: 'CANCELLED', label: 'Đã huỷ' }
                         ]}
                     />
                 </Col>

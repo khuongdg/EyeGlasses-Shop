@@ -85,6 +85,7 @@ axiosClient.interceptors.response.use(
           if (res.data && res.data.success) {
             const newToken = res.data.data?.token;
             if (newToken) {
+              localStorage.setItem('token', newToken);
               originalRequest.headers.Authorization = `Bearer ${newToken}`;
             }
 

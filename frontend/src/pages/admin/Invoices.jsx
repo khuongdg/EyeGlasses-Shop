@@ -121,7 +121,7 @@ const Invoices = () => {
         dateFrom: null,
         dateTo: null,
         paymentMethod: null,
-        isActive: null,
+        status: null,
         page: 1,
         limit: 10
     });

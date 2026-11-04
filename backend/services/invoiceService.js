@@ -137,6 +137,7 @@ exports.getInvoices = async ({
   page = 1,
   limit = 10,
   keyword,
+  status,
   isActive,
   paymentMethod,
   dateFrom,
@@ -156,8 +157,41 @@ exports.getInvoices = async ({
     andConditions.push({ isSample: { $ne: true } });
   }
 
-  // Lọc theo trạng thái hoạt động hoặc đã hủy
-  if (isActive !== undefined) {
+  // Lọc theo trạng thái thực tế của phiếu xuất kho
+  if (status && status !== 'ALL') {
+    if (status === 'CANCELLED') {
+      andConditions.push({ isActive: false });
+    } else if (status === 'COMPLETED') {
+      // Hoàn thành: các phiếu đã xuất thành công (tiền mặt / chuyển khoản hoặc công nợ đã trả xong)
+      const completedDebts = await Debt.find({ status: 'COMPLETED' }).select('invoiceId').lean();
+      const completedInvoiceIds = completedDebts.map((d) => d.invoiceId);
+      andConditions.push({
+        isActive: true,
+        $or: [
+          { paymentMethod: { $in: ['CASH', 'TRANSFER'] } },
+          { _id: { $in: completedInvoiceIds } }
+        ]
+      });
+    } else if (status === 'UNPAID') {
+      // Chưa trả: phiếu công nợ chưa thanh toán
+      const unpaidDebts = await Debt.find({ status: { $in: ['UNPAID', 'PENDING'] } }).select('invoiceId').lean();
+      const unpaidInvoiceIds = unpaidDebts.map((d) => d.invoiceId);
+      andConditions.push({
+        isActive: true,
+        paymentMethod: 'DEBT',
+        _id: { $in: unpaidInvoiceIds }
+      });
+    } else if (status === 'PARTIAL') {
+      // Trả một phần: phiếu công nợ đã thanh toán 1 phần
+      const partialDebts = await Debt.find({ status: 'PARTIAL' }).select('invoiceId').lean();
+      const partialInvoiceIds = partialDebts.map((d) => d.invoiceId);
+      andConditions.push({
+        isActive: true,
+        paymentMethod: 'DEBT',
+        _id: { $in: partialInvoiceIds }
+      });
+    }
+  } else if (isActive !== undefined) {
     andConditions.push({ isActive });
   }
 
