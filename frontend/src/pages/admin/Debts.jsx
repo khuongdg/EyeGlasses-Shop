@@ -26,7 +26,7 @@ const Debts = () => {
     const [totalPaid, setTotalPaid] = useState(0);
     const [keyword, setKeyword] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
-    const [timeRange, setTimeRange] = useState(1);
+    const [timeRange, setTimeRange] = useState('ALL');
 
     const statusFilterRef = useRef(statusFilter);
     statusFilterRef.current = statusFilter;
@@ -277,9 +277,9 @@ const Debts = () => {
                         setPage(1);
                     }}
                     options={[
+                        { value: 'ALL', label: 'Tất cả' },
                         { value: 1, label: '1 tháng' },
-                        { value: 3, label: '3 tháng' },
-                        { value: 'ALL', label: 'Tất cả' }
+                        { value: 3, label: '3 tháng' }
                     ]}
                 />
 

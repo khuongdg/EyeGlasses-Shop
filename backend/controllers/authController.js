@@ -1,18 +1,33 @@
 const authService = require('../services/authService');
 
+const getCookieOptions = (maxAgeMs = 7 * 24 * 60 * 60 * 1000) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    maxAge: maxAgeMs
+  };
+};
+
+const getClearCookieOptions = () => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax'
+  };
+};
+
 exports.login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
     const result = await authService.login(username, password);
 
-    // Lưu Refresh Token vào HTTP-Only Cookie bảo mật
-    res.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: true, // bắt buộc khi SameSite=None
-      sameSite: 'none',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 ngày
-    });
+    // Lưu Access Token & Refresh Token vào HTTP-Only Cookie bảo mật
+    res.cookie('token', result.token, getCookieOptions(7 * 24 * 60 * 60 * 1000));
+    res.cookie('refreshToken', result.refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
 
     res.json({
       success: true,
@@ -34,13 +49,9 @@ exports.refresh = async (req, res) => {
     const refreshToken = req.cookies.refreshToken;
     const result = await authService.refreshAccessToken(refreshToken);
 
-    // Xoay vòng Refresh Token mới
-    res.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+    // Xoay vòng Access Token & Refresh Token mới vào HTTP-Only Cookie
+    res.cookie('token', result.token, getCookieOptions(7 * 24 * 60 * 60 * 1000));
+    res.cookie('refreshToken', result.refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
 
     res.json({
       success: true,
@@ -58,11 +69,9 @@ exports.refresh = async (req, res) => {
 };
 
 exports.logout = async (req, res) => {
-  res.clearCookie('refreshToken', {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none'
-  });
+  const clearOpts = getClearCookieOptions();
+  res.clearCookie('token', clearOpts);
+  res.clearCookie('refreshToken', clearOpts);
   res.json({
     success: true,
     message: 'Đăng xuất thành công'

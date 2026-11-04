@@ -38,3 +38,15 @@ export const aiBulkImport = async (customerList) => {
   const url = '/customers/ai-import';
   return axiosClient.post(url, { customers: customerList });
 };
+
+/**
+ * Lấy danh sách lịch sử phiếu xuất kho của một khách hàng
+ */
+export const getCustomerInvoices = (customerId, params = {}) => {
+  return axiosClient.get('/invoices', {
+    params: {
+      customerId,
+      ...params
+    }
+  });
+};

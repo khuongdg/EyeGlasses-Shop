@@ -1,16 +1,36 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Descriptions, Table, Tag, Typography, Divider, Row, Col, Button, Space, Grid } from 'antd';
 import { FileExcelOutlined } from '@ant-design/icons';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { getInvoiceById } from '../../services/invoiceService';
 
 const { Text, Title } = Typography;
 const { useBreakpoint } = Grid;
 
-const InvoiceDetails = ({ open, onClose, data }) => {
-    if (!data) return null;
+const InvoiceDetails = ({ open, onClose, data: initialData }) => {
     const screens = useBreakpoint();
     const isMobile = !screens.md;
+
+    const [detailData, setDetailData] = useState(initialData);
+
+    useEffect(() => {
+        if (open && initialData?._id) {
+            setDetailData(initialData);
+            getInvoiceById(initialData._id)
+                .then((res) => {
+                    if (res.data?.data) {
+                        setDetailData(res.data.data);
+                    }
+                })
+                .catch(() => {});
+        } else if (!open) {
+            setDetailData(null);
+        }
+    }, [open, initialData?._id]);
+
+    const data = detailData || initialData;
+    if (!data) return null;
 
     /* ================= LOGIC XUẤT EXCEL ================= */
     const exportToExcel = async () => {
@@ -65,7 +85,7 @@ const InvoiceDetails = ({ open, onClose, data }) => {
         });
 
         // 5. Đổ dữ liệu sản phẩm
-        data.items.forEach((item, index) => {
+        (data.items || []).forEach((item, index) => {
             const total = item.quantity * item.price;
             const discountVal = (total * (item.discountPercent || 0)) / 100;
             const row = worksheet.addRow([
@@ -189,9 +209,34 @@ const InvoiceDetails = ({ open, onClose, data }) => {
                     <Descriptions title="Thông tin giao dịch" bordered column={1} size="small">
                         <Descriptions.Item label="Nhân viên">{data.staffName}</Descriptions.Item>
                         <Descriptions.Item label="Ngày tạo">{new Date(data.createdAt).toLocaleString('vi-VN')}</Descriptions.Item>
-                        <Descriptions.Item label="Phương thức thanh toán">{data.paymentMethod}</Descriptions.Item>
+                        <Descriptions.Item label="HT thanh toán">
+                            {data.paymentMethod === 'CASH'
+                                ? 'Tiền mặt'
+                                : data.paymentMethod === 'TRANSFER'
+                                ? 'Chuyển khoản'
+                                : data.paymentMethod === 'DEBT'
+                                ? 'Công nợ'
+                                : data.paymentMethod || 'Không'}
+                        </Descriptions.Item>
                         <Descriptions.Item label="Trạng thái">
-                            {data.isActive ? <Tag color="green">Hoạt động</Tag> : <Tag color="red">Đã hủy</Tag>}
+                            {data.isActive === false ? (
+                                <Tag color="default">Đã huỷ</Tag>
+                            ) : data.paymentMethod === 'DEBT' ? (
+                                data.debt?.status === 'COMPLETED' ? (
+                                    <Tag color="green">Hoàn thành</Tag>
+                                ) : data.debt?.status === 'PARTIAL' ? (
+                                    <Space size="small">
+                                        <Tag color="orange">Trả một phần</Tag>
+                                        <span className="text-red-500 font-semibold text-sm">
+                                            (Còn nợ: {(data.debt?.remainingAmount || 0).toLocaleString('vi-VN')}₫)
+                                        </span>
+                                    </Space>
+                                ) : (
+                                    <Tag color="red">Chưa trả</Tag>
+                                )
+                            ) : (
+                                <Tag color="green">Hoàn thành</Tag>
+                            )}
                         </Descriptions.Item>
                     </Descriptions>
                 </Col>
@@ -200,16 +245,16 @@ const InvoiceDetails = ({ open, onClose, data }) => {
             <Divider orientation="left">Danh sách sản phẩm</Divider>
             {!isMobile ? (
                 <Table
-                    dataSource={data.items}
+                    dataSource={data.items || []}
                     columns={columns}
                     pagination={false}
-                    rowKey={(record) => record.variantId + record.sku}
+                    rowKey={(record) => (record.variantId || '') + (record.sku || '')}
                     size="small"
                     bordered
                 />
             ) : (
                 <div className="space-y-3">
-                    {data.items.map((item, index) => {
+                    {(data.items || []).map((item, index) => {
                         const total = item.quantity * item.price;
                         const discount = (total * (item.discountPercent || 0)) / 100;
                         const final = total - discount;

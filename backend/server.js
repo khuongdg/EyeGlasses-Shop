@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const { tenantStorage, preloadTenantConnections } = require('./database/tenantManager');
+const { clearCachePattern } = require('./services/cacheService');
 
 const app = express();
 
@@ -58,10 +59,16 @@ app.use((req, res, next) => {
   let dbName = 'invoice_db';
   let tenantSlug = 'thuanthien';
 
-  // 1. Đọc từ Authorization Bearer Token nếu có
+  // 1. Đọc từ Authorization Bearer Token hoặc Cookie nếu có
   const authHeader = req.headers.authorization;
+  let token = null;
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.split(' ')[1];
+    token = authHeader.split(' ')[1];
+  } else if (req.cookies && req.cookies.token) {
+    token = req.cookies.token;
+  }
+
+  if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'glassshop_secret_key_2026');
       if (decoded.dbName) dbName = decoded.dbName;
@@ -152,4 +159,5 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   // Mở kết nối trước cho tất cả các Tenant DBs để log hiển thị đầy đủ ngay khi khởi động
   preloadTenantConnections();
+  clearCachePattern('cache:*').catch(() => {});
 });

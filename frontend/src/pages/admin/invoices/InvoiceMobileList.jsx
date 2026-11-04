@@ -40,9 +40,21 @@ const InvoiceMobileList = ({
                             </div>
                         </div>
 
-                        <Tag color={invoice.isActive ? 'green' : 'red'}>
-                            {invoice.isActive ? 'Hoạt động' : 'Không hoạt động'}
-                        </Tag>
+                        {invoice.isActive === false ? (
+                            <Tag color="default">Đã huỷ</Tag>
+                        ) : invoice.paymentMethod === 'DEBT' ? (
+                            invoice.debt?.status === 'COMPLETED' ? (
+                                <Tag color="green">Hoàn thành</Tag>
+                            ) : invoice.debt?.status === 'PARTIAL' ? (
+                                <Tag color="orange">
+                                    Trả một phần (Còn nợ: {(invoice.debt?.remainingAmount || 0).toLocaleString('vi-VN')}₫)
+                                </Tag>
+                            ) : (
+                                <Tag color="red">Chưa trả</Tag>
+                            )
+                        ) : (
+                            <Tag color="green">Hoàn thành</Tag>
+                        )}
                     </div>
 
                     <div className="mt-3 space-y-1 text-sm">

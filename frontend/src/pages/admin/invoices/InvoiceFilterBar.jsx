@@ -39,7 +39,7 @@ const InvoiceFilterBar = ({
                     <Select
                         className="w-full"
                         style={{ borderRadius: '20px' }}
-                        value={queryParams.timeRange || 1}
+                        value={queryParams.timeRange || 'ALL'}
                         onChange={(val) => {
                             let dateFrom = null;
                             let dateTo = null;
@@ -58,9 +58,9 @@ const InvoiceFilterBar = ({
                             fetchInvoices(newParams);
                         }}
                         options={[
+                            { value: 'ALL', label: 'Tất cả' },
                             { value: 1, label: '1 tháng' },
-                            { value: 3, label: '3 tháng' },
-                            { value: 'ALL', label: 'Tất cả' }
+                            { value: 3, label: '3 tháng' }
                         ]}
                     />
                 </Col>

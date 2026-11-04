@@ -9,11 +9,20 @@ const { clearCachePattern } = require('../services/cacheService');
 
 // Clear product cache middleware for mutations
 const clearProductCache = async (req, res, next) => {
-  res.on('finish', () => {
+  const originalJson = res.json.bind(res);
+  res.json = async (data) => {
     if (res.statusCode >= 200 && res.statusCode < 300) {
-      clearCachePattern('cache:*:/api/products*').catch(() => {});
+      try {
+        await Promise.all([
+          clearCachePattern('cache:*:/api/products*'),
+          clearCachePattern('cache:*:/api/dashboard*')
+        ]);
+      } catch (e) {
+        console.error('Error clearing product/dashboard cache:', e);
+      }
     }
-  });
+    return originalJson(data);
+  };
   next();
 };
 

@@ -9,6 +9,7 @@ const normalizeStr = (str) => {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/^(tinh|thanh pho|tp\.|tp|phuong|xa|thi tran)\s+/gi, '')
+    .replace(/[.,]/g, '')
     .trim();
 };
 
@@ -51,11 +52,25 @@ const VietnamAddressInput = ({ value, onChange, placeholder = "Số nhà, tên �
 
   // 2. Tự động nhận diện và phân tích địa chỉ có sẵn nếu có value (khi bấm Sửa khách hàng)
   useEffect(() => {
-    if (!value || isUserInteracted.current || parsedValueRef.current === value || provinces.length === 0) {
+    if (!value) {
+      setSelectedProvince(null);
+      setSelectedWard(null);
+      setStreetDetail('');
+      parsedValueRef.current = '';
+      isUserInteracted.current = false;
+      return;
+    }
+
+    if (parsedValueRef.current === value) {
+      return;
+    }
+
+    if (provinces.length === 0) {
       return;
     }
 
     parsedValueRef.current = value;
+    isUserInteracted.current = false;
 
     // Tách địa chỉ dạng: "Số nhà tên đường, Phường/Xã, Tỉnh/Thành phố"
     const parts = value.split(',').map((p) => p.trim()).filter(Boolean);
@@ -83,13 +98,25 @@ const VietnamAddressInput = ({ value, onChange, placeholder = "Số nhà, tên �
 
           if (matchedWard) {
             setSelectedWard(matchedWard);
-            const street = parts.slice(0, parts.length - 2).join(', ');
+            const street = parts.slice(0, parts.length - 2).join(', ').replace(/[.,]+$/, '').trim();
             setStreetDetail(street);
+            const cleanAddr = buildFullAddress(street, matchedWard, matchedProv);
+            if (cleanAddr && cleanAddr !== value) {
+              parsedValueRef.current = cleanAddr;
+              onChange?.(cleanAddr);
+            }
           } else {
-            const street = parts.slice(0, parts.length - 1).join(', ');
+            const street = parts.slice(0, parts.length - 1).join(', ').replace(/[.,]+$/, '').trim();
             setStreetDetail(street);
+            const cleanAddr = buildFullAddress(street, null, matchedProv);
+            if (cleanAddr && cleanAddr !== value) {
+              parsedValueRef.current = cleanAddr;
+              onChange?.(cleanAddr);
+            }
           }
         });
+      } else {
+        setStreetDetail(value);
       }
     } else {
       setStreetDetail(value);
@@ -128,6 +155,7 @@ const VietnamAddressInput = ({ value, onChange, placeholder = "Số nhà, tên �
     }
 
     const fullAddr = buildFullAddress(streetDetail, null, provinceObj);
+    parsedValueRef.current = fullAddr;
     onChange?.(fullAddr);
   };
 
@@ -138,6 +166,7 @@ const VietnamAddressInput = ({ value, onChange, placeholder = "Số nhà, tên �
     setSelectedWard(wardObj);
 
     const fullAddr = buildFullAddress(streetDetail, wardObj, selectedProvince);
+    parsedValueRef.current = fullAddr;
     onChange?.(fullAddr);
   };
 
@@ -148,6 +177,7 @@ const VietnamAddressInput = ({ value, onChange, placeholder = "Số nhà, tên �
     setStreetDetail(val);
 
     const fullAddr = buildFullAddress(val, selectedWard, selectedProvince);
+    parsedValueRef.current = fullAddr;
     onChange?.(fullAddr);
   };
 

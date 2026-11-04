@@ -8,6 +8,10 @@ export const getInvoices = (params) => {
   return axiosClient.get('/invoices', { params });
 };
 
+export const getInvoiceById = (invoiceId) => {
+  return axiosClient.get(`/invoices/${invoiceId}/detail`);
+};
+
 /**
  * Tạo phiếu xuất kho
  * payload phải khớp InvoiceSchema backend

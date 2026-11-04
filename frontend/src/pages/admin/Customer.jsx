@@ -15,14 +15,20 @@ import {
   Grid,
   Upload,
   Dropdown,
-  Popconfirm
+  Popconfirm,
+  Tooltip,
+  Card,
+  Statistic
 } from 'antd';
 import {
   PlusOutlined,
   FileExcelOutlined,
   SearchOutlined,
   DownloadOutlined,
-  DownOutlined
+  DownOutlined,
+  ExportOutlined,
+  HistoryOutlined,
+  EyeOutlined
 } from '@ant-design/icons';
 import debounce from 'lodash/debounce';
 
@@ -33,9 +39,11 @@ import {
   updateCustomer,
   deleteCustomer,
   restoreCustomer,
-  aiBulkImport
+  aiBulkImport,
+  getCustomerInvoices
 } from '../../services/customerService';
 import VietnamAddressInput from '../../components/VietnamAddressInput';
+import InvoiceDetails from './InvoiceDetails';
 
 const Customer = () => {
   const [customers, setCustomers] = useState([]);
@@ -58,6 +66,64 @@ const Customer = () => {
 
   const [form] = Form.useForm();
   const [importLoading, setImportLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+
+  /* ================= LỊCH SỬ MUA HÀNG ================= */
+  const [historyCustomer, setHistoryCustomer] = useState(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyInvoices, setHistoryInvoices] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyStats, setHistoryStats] = useState({ totalOrders: 0, totalSpent: 0, totalQuantity: 0 });
+  const [historyPagination, setHistoryPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0
+  });
+  const [selectedInvoiceForDetail, setSelectedInvoiceForDetail] = useState(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  const fetchCustomerHistory = async (customer, page = 1, pageSize = 10) => {
+    if (!customer) return;
+    setHistoryLoading(true);
+    try {
+      const res = await getCustomerInvoices(customer._id, {
+        page,
+        limit: pageSize
+      });
+      setHistoryInvoices(res.data.data || []);
+      setHistoryPagination({
+        current: page,
+        pageSize,
+        total: res.data.total || 0
+      });
+      if (res.data.stats) {
+        setHistoryStats(res.data.stats);
+      } else {
+        const activeList = (res.data.data || []).filter(inv => inv.isActive !== false);
+        setHistoryStats({
+          totalOrders: activeList.length,
+          totalSpent: activeList.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0),
+          totalQuantity: activeList.reduce((sum, inv) => sum + (inv.totalQuantity || 0), 0)
+        });
+      }
+    } catch (err) {
+      console.error('Lỗi tải lịch sử mua hàng:', err);
+      message.error('Không thể tải lịch sử mua hàng');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleOpenHistory = (customer) => {
+    setHistoryCustomer(customer);
+    setIsHistoryOpen(true);
+    fetchCustomerHistory(customer, 1, 10);
+  };
+
+  const handleViewInvoiceDetail = (invoice) => {
+    setSelectedInvoiceForDetail(invoice);
+    setIsDetailOpen(true);
+  };
 
   /* ================= FETCH ================= */
   const fetchCustomers = async (
@@ -281,6 +347,129 @@ const Customer = () => {
     return false;
   };
 
+  /* ================= EXPORT KHÁCH HÀNG EXCEL ================= */
+  const exportCustomersToExcel = async () => {
+    setExportLoading(true);
+    try {
+      const params = { limit: 100000 };
+      if (searchKeyword) params.keyword = searchKeyword;
+      if (statusFilter !== 'ALL') params.isActive = statusFilter === 'ACTIVE';
+
+      const res = await getCustomers(params);
+      const customerList = res.data.data || [];
+
+      if (customerList.length === 0) {
+        message.warning('Không có dữ liệu khách hàng để xuất!');
+        return;
+      }
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('DanhSach_KhachHang');
+
+      // 1. Cấu hình độ rộng các cột (giống file mẫu kèm cột STT ở đầu)
+      worksheet.columns = [
+        { header: 'STT', key: 'stt', width: 8 },
+        { header: 'Tên khách hàng', key: 'name', width: 25 },
+        { header: 'Số điện thoại', key: 'phone', width: 18 },
+        { header: 'Email', key: 'email', width: 25 },
+        { header: 'Mã số thuế', key: 'taxCode', width: 18 },
+        { header: 'Tỉnh / Thành phố', key: 'province', width: 24 },
+        { header: 'Phường / Xã', key: 'ward', width: 22 },
+        { header: 'Địa chỉ cụ thể', key: 'street', width: 32 },
+      ];
+      worksheet.spliceRows(1, 1);
+
+      // 2. Dòng tiêu đề cột (định dạng xanh lá đặc trưng của file mẫu)
+      const headerRow = worksheet.addRow([
+        'STT',
+        'Tên khách hàng',
+        'Số điện thoại',
+        'Email',
+        'Mã số thuế',
+        'Tỉnh / Thành phố',
+        'Phường / Xã',
+        'Địa chỉ cụ thể'
+      ]);
+
+      headerRow.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } };
+        cell.font = { name: 'Arial', bold: true, color: { argb: 'FF006100' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+      headerRow.height = 25;
+
+      // 3. Đổ dữ liệu khách hàng
+      customerList.forEach((c, idx) => {
+        let province = '';
+        let ward = '';
+        let street = '';
+
+        if (c.address) {
+          const parts = c.address.split(',').map((p) => p.trim()).filter(Boolean);
+          if (parts.length >= 3) {
+            province = parts[parts.length - 1];
+            ward = parts[parts.length - 2];
+            street = parts.slice(0, parts.length - 2).join(', ');
+          } else if (parts.length === 2) {
+            province = parts[1];
+            ward = '';
+            street = parts[0];
+          } else {
+            street = c.address;
+          }
+        }
+
+        const r = worksheet.addRow([
+          idx + 1,
+          c.name || '',
+          c.phone || '',
+          c.email || '',
+          c.taxCode || '',
+          province,
+          ward,
+          street
+        ]);
+        r.height = 22;
+
+        r.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }; // STT
+        r.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };   // Tên
+        r.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' }; // SĐT
+        r.getCell(4).alignment = { horizontal: 'left', vertical: 'middle' };   // Email
+        r.getCell(5).alignment = { horizontal: 'center', vertical: 'middle' }; // MST
+        r.getCell(6).alignment = { horizontal: 'left', vertical: 'middle' };   // Tỉnh/TP
+        r.getCell(7).alignment = { horizontal: 'left', vertical: 'middle' };   // Phường/Xã
+        r.getCell(8).alignment = { horizontal: 'left', vertical: 'middle' };   // Địa chỉ cụ thể
+
+        r.eachCell((cell) => {
+          cell.font = { name: 'Arial', size: 10 };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+        });
+      });
+
+      // 4. Xuất file về máy
+      const buffer = await workbook.xlsx.writeBuffer();
+      const dateStr = new Date().toISOString().slice(0, 10);
+      saveAs(new Blob([buffer]), `Danh_Sach_Khach_Hang_${dateStr}.xlsx`);
+      message.success('Xuất thông tin khách hàng thành công!');
+    } catch (err) {
+      console.error('Lỗi xuất Excel khách hàng:', err);
+      message.error('Không thể xuất thông tin khách hàng ra file Excel');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   /* ================= EXCEL MENU ITEMS ================= */
   const excelMenuItems = [
     {
@@ -299,13 +488,22 @@ const Customer = () => {
           accept=".xlsx, .xls"
           showUploadList={false}
           beforeUpload={handleAIImport}
-          disabled={importLoading}
+          disabled={importLoading || exportLoading}
           style={{ width: '100%' }}
         >
           <div style={{ width: '100%', fontWeight: 600 }}>Import Excel Khách hàng</div>
         </Upload>
       ),
       icon: <FileExcelOutlined />
+    },
+    {
+      type: 'divider'
+    },
+    {
+      key: 'export_excel',
+      label: <span style={{ fontWeight: 600 }}>Xuất thông tin khách hàng</span>,
+      icon: <ExportOutlined />,
+      onClick: exportCustomersToExcel
     }
   ];
 
@@ -357,7 +555,17 @@ const Customer = () => {
   const columns = [
     {
       title: 'Tên khách hàng',
-      dataIndex: 'name'
+      dataIndex: 'name',
+      render: (name, record) => (
+        <Tooltip title="Nhấn để xem lịch sử mua hàng">
+          <span
+            className="font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer inline-flex items-center gap-1.5"
+            onClick={() => handleOpenHistory(record)}
+          >
+            {name}
+          </span>
+        </Tooltip>
+      )
     },
     {
       title: 'SĐT',
@@ -383,8 +591,19 @@ const Customer = () => {
     },
     {
       title: 'Hành động',
+      align: 'center',
       render: (_, record) => (
         <Space wrap>
+          <Tooltip title="Xem lịch sử mua hàng">
+            <Button
+              size="small"
+              icon={<HistoryOutlined />}
+              onClick={() => handleOpenHistory(record)}
+            >
+              Lịch sử
+            </Button>
+          </Tooltip>
+
           {record.isActive && (
             <Button
               size="small"
@@ -472,7 +691,7 @@ const Customer = () => {
             trigger={['click']}
           >
             <Button
-              loading={importLoading}
+              loading={importLoading || exportLoading}
               className="text-white bg-[#1D6F42] border-[#1D6F42] 
                          hover:!bg-[#278950] hover:!text-white hover:!border-[#278950] 
                          focus:!bg-[#1D6F42] focus:!text-white focus:!border-[#1D6F42]
@@ -524,7 +743,10 @@ const Customer = () => {
             >
               <div className="flex justify-between items-start">
                 <div>
-                  <div className="font-semibold text-base">
+                  <div
+                    className="font-semibold text-base text-blue-600 cursor-pointer hover:underline flex items-center gap-1.5"
+                    onClick={() => handleOpenHistory(customer)}
+                  >
                     {customer.name}
                   </div>
                   <div className="text-sm text-gray-600">
@@ -544,6 +766,14 @@ const Customer = () => {
               </div>
 
               <div className="mt-3 flex gap-2 flex-wrap">
+                <Button
+                  size="small"
+                  icon={<HistoryOutlined />}
+                  onClick={() => handleOpenHistory(customer)}
+                >
+                  Lịch sử mua
+                </Button>
+
                 <Button
                   size="small"
                   disabled={!customer.isActive}
@@ -681,6 +911,233 @@ const Customer = () => {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* MODAL LỊCH SỬ MUA HÀNG */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-base sm:text-lg">
+            <HistoryOutlined className="text-blue-600" />
+            <span>
+              Lịch sử mua hàng - <span className="text-blue-600 font-bold">{historyCustomer?.name}</span>
+            </span>
+          </div>
+        }
+        open={isHistoryOpen}
+        onCancel={() => setIsHistoryOpen(false)}
+        footer={[
+          <Button key="close" type="primary" onClick={() => setIsHistoryOpen(false)}>
+            Đóng
+          </Button>
+        ]}
+        width="95%"
+        style={{ maxWidth: 1000 }}
+        destroyOnClose
+      >
+        {historyCustomer && (
+          <div className="space-y-4 pt-2">
+            {/* THÔNG TIN KHÁCH HÀNG */}
+            <div className="bg-gray-50 p-3.5 rounded-lg border border-gray-200 space-y-2 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                <div>
+                  <span className="text-gray-500">SĐT:</span>{' '}
+                  <strong className="text-gray-800">{historyCustomer.phone || 'Chưa có'}</strong>
+                </div>
+                <div>
+                  <span className="text-gray-500">MST:</span>{' '}
+                  <strong className="text-gray-800">{historyCustomer.taxCode || 'Chưa có'}</strong>
+                </div>
+                <div>
+                  <span className="text-gray-500">Email:</span>{' '}
+                  <strong className="text-gray-800">{historyCustomer.email || 'Chưa có'}</strong>
+                </div>
+              </div>
+              <div className="pt-1.5 border-t border-gray-200/60">
+                <span className="text-gray-500">Địa chỉ:</span>{' '}
+                <strong className="text-gray-800 break-words leading-relaxed">{historyCustomer.address || 'Chưa có'}</strong>
+              </div>
+            </div>
+
+            {/* THỐNG KÊ MUA HÀNG */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Card size="small" className="border-blue-100 bg-blue-50/40">
+                <Statistic
+                  title={<span className="text-gray-600 font-medium">Tổng số phiếu xuất</span>}
+                  value={historyStats.totalOrders || 0}
+                  suffix="phiếu"
+                  valueStyle={{ color: '#1677ff', fontWeight: 'bold' }}
+                />
+              </Card>
+              <Card size="small" className="border-purple-100 bg-purple-50/40">
+                <Statistic
+                  title={<span className="text-gray-600 font-medium">Tổng sản phẩm đã mua</span>}
+                  value={historyStats.totalQuantity || 0}
+                  suffix="cái"
+                  valueStyle={{ color: '#722ed1', fontWeight: 'bold' }}
+                />
+              </Card>
+              <Card size="small" className="border-green-100 bg-green-50/40">
+                <Statistic
+                  title={<span className="text-gray-600 font-medium">Tổng tiền chi tiêu</span>}
+                  value={(historyStats.totalSpent || 0).toLocaleString('vi-VN')}
+                  suffix="đ"
+                  valueStyle={{ color: '#389e0d', fontWeight: 'bold' }}
+                />
+              </Card>
+            </div>
+
+            {/* BẢNG PHIẾU XUẤT KHO CỦA KHÁCH */}
+            <Table
+              rowKey="_id"
+              loading={historyLoading}
+              dataSource={historyInvoices}
+              scroll={{ x: 'max-content' }}
+              pagination={{
+                current: historyPagination.current,
+                pageSize: historyPagination.pageSize,
+                total: historyPagination.total,
+                showSizeChanger: true,
+                pageSizeOptions: ['5', '10', '20'],
+                onChange: (page, pageSize) => {
+                  fetchCustomerHistory(historyCustomer, page, pageSize);
+                }
+              }}
+              columns={[
+                {
+                  title: 'Mã phiếu',
+                  dataIndex: 'invoiceCode',
+                  key: 'invoiceCode',
+                  render: (code, record) => (
+                    <span
+                      onClick={() => handleViewInvoiceDetail(record)}
+                      className="font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                    >
+                      {code}
+                    </span>
+                  )
+                },
+                {
+                  title: 'Ngày mua',
+                  dataIndex: 'createdAt',
+                  key: 'createdAt',
+                  render: (date) => (date ? new Date(date).toLocaleString('vi-VN') : '—')
+                },
+                {
+                  title: 'Nhân viên bán',
+                  dataIndex: 'staffName',
+                  key: 'staffName',
+                  render: (name) => name || '—'
+                },
+                {
+                  title: 'Số lượng',
+                  dataIndex: 'totalQuantity',
+                  key: 'totalQuantity',
+                  align: 'center',
+                  render: (q) => <Tag color="blue">{q || 0}</Tag>
+                },
+                {
+                  title: 'Tổng tiền',
+                  dataIndex: 'totalAmount',
+                  key: 'totalAmount',
+                  align: 'right',
+                  render: (amount) => (
+                    <strong className="text-green-600">
+                      {amount != null ? `${amount.toLocaleString('vi-VN')} đ` : '—'}
+                    </strong>
+                  )
+                },
+                {
+                  title: 'Thanh toán',
+                  dataIndex: 'paymentMethod',
+                  key: 'paymentMethod',
+                  align: 'center',
+                  render: (method) => {
+                    switch (method) {
+                      case 'CASH':
+                        return <Tag color="blue">Tiền mặt</Tag>;
+                      case 'TRANSFER':
+                        return <Tag color="cyan">Chuyển khoản</Tag>;
+                      case 'DEBT':
+                        return <Tag color="orange">Công nợ</Tag>;
+                      default:
+                        return <Tag>{method || 'Chưa rõ'}</Tag>;
+                    }
+                  }
+                },
+                {
+                  title: 'Trạng thái',
+                  key: 'status',
+                  align: 'center',
+                  render: (_, record) => {
+                    // Nếu phiếu đã bị hủy
+                    if (record.isActive === false) {
+                      return <Tag color="default">Đã huỷ</Tag>;
+                    }
+
+                    // Nếu là Công nợ: hiển thị mức hoàn thành giống mục Quản lý Công nợ
+                    if (record.paymentMethod === 'DEBT') {
+                      const debtStatus = record.debt?.status;
+                      if (debtStatus === 'COMPLETED') {
+                        return <Tag color="green">Hoàn thành</Tag>;
+                      }
+                      if (debtStatus === 'PARTIAL') {
+                        const paid = (record.debt?.paidAmount || 0).toLocaleString('vi-VN');
+                        const remaining = (record.debt?.remainingAmount || 0).toLocaleString('vi-VN');
+                        return (
+                          <div className="flex flex-col items-center justify-center gap-0.5">
+                            <Tag color="orange" className="!mr-0">Trả một phần</Tag>
+                            <span className="text-xs text-red-500 font-semibold whitespace-nowrap">
+                              Còn nợ: {remaining}₫
+                            </span>
+                          </div>
+                        );
+                      }
+                      if (debtStatus === 'CANCELLED') {
+                        return <Tag color="default">Đã huỷ</Tag>;
+                      }
+                      return <Tag color="red">Chưa trả</Tag>;
+                    }
+
+                    // Tiền mặt / Chuyển khoản: đã hoàn thành thanh toán
+                    if (record.paymentMethod === 'CASH' || record.paymentMethod === 'TRANSFER') {
+                      return <Tag color="green">Hoàn thành</Tag>;
+                    }
+
+                    // Hàng mẫu / Không thu tiền
+                    if (record.isSample || record.paymentMethod === 'NONE') {
+                      return <Tag color="blue">Hàng mẫu</Tag>;
+                    }
+
+                    return <Tag color="green">Hoàn thành</Tag>;
+                  }
+                },
+                {
+                  title: 'Thao tác',
+                  key: 'action',
+                  align: 'center',
+                  render: (_, record) => (
+                    <Button
+                      type="primary"
+                      ghost
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={() => handleViewInvoiceDetail(record)}
+                    >
+                      Chi tiết
+                    </Button>
+                  )
+                }
+              ]}
+            />
+          </div>
+        )}
+      </Modal>
+
+      {/* MODAL CHI TIẾT PHIẾU XUẤT KHO */}
+      <InvoiceDetails
+        open={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+        data={selectedInvoiceForDetail}
+      />
     </div>
   );
 };

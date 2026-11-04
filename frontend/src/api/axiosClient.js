@@ -83,11 +83,10 @@ axiosClient.interceptors.response.use(
           );
 
           if (res.data && res.data.success) {
-            const newToken = res.data.data.token;
-            localStorage.setItem('token', newToken);
-
-            // Cập nhật Authorization cho request gốc
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            const newToken = res.data.data?.token;
+            if (newToken) {
+              originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            }
 
             // Giải phóng hàng đợi và thực hiện lại tất cả request lỗi
             processQueue(null, newToken);
@@ -102,6 +101,8 @@ axiosClient.interceptors.response.use(
 
           localStorage.removeItem('token');
           localStorage.removeItem('role');
+          localStorage.removeItem('companyName');
+          localStorage.removeItem('tenantSlug');
 
           if (window.location.pathname !== '/login') {
             window.location.href = '/login';

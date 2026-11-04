@@ -9,9 +9,8 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
-    if (token && role) {
+    if (role) {
       navigate(role === 'ADMIN' ? '/admin' : '/staff');
     }
   }, [navigate]);
@@ -20,9 +19,10 @@ const Login = () => {
     setLoading(true);
     try {
       const res = await login(values);
-      const { token, user } = res.data.data;
+      const { user } = res.data.data;
 
-      localStorage.setItem('token', token);
+      // Token được lưu tự động trong HttpOnly Cookie từ Server để chống XSS
+      localStorage.removeItem('token');
       localStorage.setItem('role', user.role);
       localStorage.setItem('companyName', user.companyName || 'Mắt Kính Thuận Thiên');
       localStorage.setItem('tenantSlug', user.tenantSlug || 'thuanthien');

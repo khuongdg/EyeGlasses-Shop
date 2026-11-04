@@ -30,7 +30,9 @@ exports.getInvoices = async (req, res) => {
       paymentMethod,
       dateFrom,
       dateTo,
-      isSample
+      isSample,
+      customerId,
+      customerPhone
     } = req.query;
 
     const result = await invoiceService.getInvoices({
@@ -41,6 +43,8 @@ exports.getInvoices = async (req, res) => {
       dateFrom,
       dateTo,
       isSample,
+      customerId,
+      customerPhone,
       // Xử lý logic Boolean cho isActive từ query string
       isActive: isActive === 'true' ? true : (isActive === 'false' ? false : undefined)
     });
@@ -50,7 +54,8 @@ exports.getInvoices = async (req, res) => {
       data: result.data,
       total: result.total,
       page: result.page,
-      limit: result.limit
+      limit: result.limit,
+      stats: result.stats
     });
   } catch (error) {
     console.error('Get invoices error:', error);
@@ -175,5 +180,25 @@ exports.updateInvoiceAdminNote = async (req, res) => {
   } catch (error) {
     console.error('Update invoice adminNote error:', error);
     res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+exports.getInvoiceById = async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    const invoice = await invoiceService.getInvoiceById(invoiceId);
+    if (!invoice) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy phiếu xuất kho'
+      });
+    }
+    res.json({
+      success: true,
+      data: invoice
+    });
+  } catch (error) {
+    console.error('Get invoice by ID error:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -117,9 +117,9 @@ const Invoices = () => {
 
     const [queryParams, setQueryParams] = useState({
         keyword: '',
-        timeRange: 1,
-        dateFrom: dayjs().subtract(1, 'month').format('YYYY-MM-DD'),
-        dateTo: dayjs().format('YYYY-MM-DD'),
+        timeRange: 'ALL',
+        dateFrom: null,
+        dateTo: null,
         paymentMethod: null,
         isActive: null,
         page: 1,
@@ -583,10 +583,38 @@ const Invoices = () => {
         },
         {
             title: 'Trạng thái',
-            dataIndex: 'isActive',
             className: 'whitespace-nowrap',
-            render: (v) =>
-                v ? <Tag color="green">Hoạt động</Tag> : <Tag color="red">Không hoạt động</Tag>
+            align: 'center',
+            render: (_, record) => {
+                if (record.isActive === false) {
+                    return <Tag color="default">Đã huỷ</Tag>;
+                }
+                if (record.paymentMethod === 'DEBT') {
+                    const debtStatus = record.debt?.status;
+                    if (debtStatus === 'COMPLETED') {
+                        return <Tag color="green">Hoàn thành</Tag>;
+                    }
+                    if (debtStatus === 'PARTIAL') {
+                        const remaining = (record.debt?.remainingAmount || 0).toLocaleString('vi-VN');
+                        return (
+                            <div className="flex flex-col items-center justify-center gap-0.5">
+                                <Tag color="orange" className="!mr-0">Trả một phần</Tag>
+                            </div>
+                        );
+                    }
+                    if (debtStatus === 'CANCELLED') {
+                        return <Tag color="default">Đã huỷ</Tag>;
+                    }
+                    return <Tag color="red">Chưa trả</Tag>;
+                }
+                if (record.paymentMethod === 'CASH' || record.paymentMethod === 'TRANSFER') {
+                    return <Tag color="green">Hoàn thành</Tag>;
+                }
+                if (record.isSample || record.paymentMethod === 'NONE') {
+                    return <Tag color="blue">Hàng mẫu</Tag>;
+                }
+                return <Tag color="green">Hoàn thành</Tag>;
+            }
         },
         {
             title: 'Hành động',

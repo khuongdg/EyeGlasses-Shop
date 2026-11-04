@@ -5,12 +5,20 @@ const { clearCachePattern } = require('../services/cacheService');
 
 // Middleware xóa cache sản phẩm, tồn kho & dashboard khi nhập hoặc hủy phiếu nhập kho
 const clearProductCache = async (req, res, next) => {
-  res.on('finish', () => {
+  const originalJson = res.json.bind(res);
+  res.json = async (data) => {
     if (res.statusCode >= 200 && res.statusCode < 300) {
-      clearCachePattern('cache:*:/api/products*').catch(() => {});
-      clearCachePattern('cache:*:/api/dashboard*').catch(() => {});
+      try {
+        await Promise.all([
+          clearCachePattern('cache:*:/api/products*'),
+          clearCachePattern('cache:*:/api/dashboard*')
+        ]);
+      } catch (e) {
+        console.error('Error clearing import/dashboard cache:', e);
+      }
     }
-  });
+    return originalJson(data);
+  };
   next();
 };
 

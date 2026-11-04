@@ -6,11 +6,17 @@ const { clearCachePattern } = require('../services/cacheService');
 
 // Clear customer cache middleware for mutations
 const clearCustomerCache = async (req, res, next) => {
-  res.on('finish', () => {
+  const originalJson = res.json.bind(res);
+  res.json = async (data) => {
     if (res.statusCode >= 200 && res.statusCode < 300) {
-      clearCachePattern('cache:*:/api/customers*').catch(() => {});
+      try {
+        await clearCachePattern('cache:*:/api/customers*');
+      } catch (e) {
+        console.error('Error clearing customer cache:', e);
+      }
     }
-  });
+    return originalJson(data);
+  };
   next();
 };
 

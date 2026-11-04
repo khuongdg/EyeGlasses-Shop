@@ -35,4 +35,9 @@ const DebtSchema = new mongoose.Schema({
   note: String
 }, { timestamps: true });
 
+// Indexes tối ưu hiệu năng truy vấn công nợ
+DebtSchema.index({ invoiceId: 1 });
+DebtSchema.index({ status: 1, createdAt: -1 });
+DebtSchema.index({ customerPhone: 1 });
+
 module.exports = createTenantModelProxy('Debt', DebtSchema);

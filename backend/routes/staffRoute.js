@@ -6,11 +6,17 @@ const { clearCachePattern } = require('../services/cacheService');
 
 // Clear staff cache middleware for mutations
 const clearStaffCache = async (req, res, next) => {
-  res.on('finish', () => {
+  const originalJson = res.json.bind(res);
+  res.json = async (data) => {
     if (res.statusCode >= 200 && res.statusCode < 300) {
-      clearCachePattern('cache:*:/api/staffs*').catch(() => {});
+      try {
+        await clearCachePattern('cache:*:/api/staffs*');
+      } catch (e) {
+        console.error('Error clearing staff cache:', e);
+      }
     }
-  });
+    return originalJson(data);
+  };
   next();
 };
 

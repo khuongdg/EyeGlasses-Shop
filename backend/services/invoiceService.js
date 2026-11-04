@@ -141,54 +141,66 @@ exports.getInvoices = async ({
   paymentMethod,
   dateFrom,
   dateTo,
-  isSample
+  isSample,
+  customerId,
+  customerPhone
 }) => {
-  const filter = {
-    isDraft: { $ne: true } // Không bao giờ hiển thị bản nháp trong danh sách phiếu
-  };
+  const andConditions = [
+    { isDraft: { $ne: true } } // Không bao giờ hiển thị bản nháp trong danh sách phiếu
+  ];
 
   // Lọc theo isSample (tem mẫu)
   if (isSample !== undefined) {
-    filter.isSample = isSample === 'true' || isSample === true;
+    andConditions.push({ isSample: isSample === 'true' || isSample === true });
   } else {
-    filter.isSample = { $ne: true };
+    andConditions.push({ isSample: { $ne: true } });
   }
 
   // Lọc theo trạng thái hoạt động hoặc đã hủy
   if (isActive !== undefined) {
-    filter.isActive = isActive;
+    andConditions.push({ isActive });
   }
 
   // Lọc theo phương thức thanh toán
   if (paymentMethod) {
-    filter.paymentMethod = paymentMethod;
+    andConditions.push({ paymentMethod });
+  }
+
+  // Lọc theo khách hàng (ưu tiên lọc chính xác theo customerId nếu có)
+  if (customerId) {
+    andConditions.push({ customerId });
+  } else if (customerPhone) {
+    andConditions.push({ customerPhone });
   }
 
   // Tìm kiếm theo mã phiếu, tên khách hàng hoặc SĐT khách hàng (Snapshot)
   if (keyword) {
-    filter.$or = [
-      { invoiceCode: { $regex: keyword, $options: 'i' } },
-      { customerName: { $regex: keyword, $options: 'i' } },
-      { customerPhone: { $regex: keyword, $options: 'i' } }
-    ];
+    andConditions.push({
+      $or: [
+        { invoiceCode: { $regex: keyword, $options: 'i' } },
+        { customerName: { $regex: keyword, $options: 'i' } },
+        { customerPhone: { $regex: keyword, $options: 'i' } }
+      ]
+    });
   }
 
   // Lọc theo khoảng thời gian
   if (dateFrom || dateTo) {
-    filter.createdAt = {};
-    if (dateFrom) filter.createdAt.$gte = new Date(new Date(dateFrom).setHours(0, 0, 0, 0));
-    if (dateTo) filter.createdAt.$lte = new Date(new Date(dateTo).setHours(23, 59, 59, 999));
+    const dateCond = {};
+    if (dateFrom) dateCond.$gte = new Date(new Date(dateFrom).setHours(0, 0, 0, 0));
+    if (dateTo) dateCond.$lte = new Date(new Date(dateTo).setHours(23, 59, 59, 999));
+    andConditions.push({ createdAt: dateCond });
   }
+
+  const filter = andConditions.length > 0 ? { $and: andConditions } : {};
 
   const skip = (page - 1) * limit;
 
   const [invoices, total] = await Promise.all([
     Invoice.find(filter)
-      // Populate để lấy thông tin gốc nếu cần đối chiếu
+      // Populate thông tin cơ bản cần thiết cho danh sách phiếu
       .populate('customerId', 'name phone address taxCode')
       .populate('staffId', 'name staffCode')
-      // Populate variant trong mảng items để lấy thông tin sản phẩm đầy đủ
-      .populate('items.variantId')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -197,11 +209,78 @@ exports.getInvoices = async ({
     Invoice.countDocuments(filter)
   ]);
 
+  // Lấy thông tin công nợ tương ứng với các phiếu xuất kho
+  const invoiceIds = invoices.map((inv) => inv._id);
+  const debts = await Debt.find({ invoiceId: { $in: invoiceIds } })
+    .select('invoiceId status totalAmount paidAmount remainingAmount')
+    .lean();
+
+  const debtMap = new Map();
+  debts.forEach((d) => {
+    if (d.invoiceId) {
+      debtMap.set(d.invoiceId.toString(), d);
+    }
+  });
+
+  const enrichedInvoices = invoices.map((inv) => {
+    const debt = debtMap.get(inv._id.toString());
+    return {
+      ...inv,
+      debt: debt || null
+    };
+  });
+
+  // Thống kê tổng số đơn và chi tiêu nếu truy vấn theo khách hàng
+  let stats = null;
+  if (customerId || customerPhone) {
+    try {
+      const matchConditions = [
+        { isDraft: { $ne: true } },
+        { isActive: { $ne: false } } // Loại trừ hoàn toàn các đơn hàng đã bị hủy khỏi thống kê
+      ];
+      if (isSample !== undefined) {
+        matchConditions.push({ isSample: isSample === 'true' || isSample === true });
+      } else {
+        matchConditions.push({ isSample: { $ne: true } });
+      }
+
+      if (customerId) {
+        const cId = mongoose.Types.ObjectId.isValid(customerId)
+          ? new mongoose.Types.ObjectId(customerId)
+          : customerId;
+        matchConditions.push({ customerId: cId });
+      } else if (customerPhone) {
+        matchConditions.push({ customerPhone });
+      }
+
+      const statsResult = await Invoice.aggregate([
+        { $match: { $and: matchConditions } },
+        {
+          $group: {
+            _id: null,
+            totalOrders: { $sum: 1 },
+            totalSpent: { $sum: { $ifNull: ['$totalAmount', 0] } },
+            totalQuantity: { $sum: { $ifNull: ['$totalQuantity', 0] } }
+          }
+        }
+      ]);
+
+      stats = statsResult[0] ? {
+        totalOrders: statsResult[0].totalOrders || 0,
+        totalSpent: statsResult[0].totalSpent || 0,
+        totalQuantity: statsResult[0].totalQuantity || 0
+      } : { totalOrders: 0, totalSpent: 0, totalQuantity: 0 };
+    } catch (err) {
+      console.error('Invoice stats aggregation error:', err);
+    }
+  }
+
   return {
-    data: invoices,
+    data: enrichedInvoices,
     total,
     page,
-    limit
+    limit,
+    stats
   };
 };
 
@@ -472,4 +551,26 @@ exports.updateInvoiceAdminNote = async (invoiceId, adminNote) => {
   );
   if (!invoice) throw new Error('Không tìm thấy phiếu xuất kho.');
   return invoice;
+};
+
+/**
+ * Lấy chi tiết một phiếu xuất kho theo ID (nạp đầy đủ variant và công nợ)
+ */
+exports.getInvoiceById = async (invoiceId) => {
+  const invoice = await Invoice.findById(invoiceId)
+    .populate('customerId', 'name phone address taxCode email')
+    .populate('staffId', 'name staffCode')
+    .populate('items.variantId')
+    .lean();
+
+  if (!invoice) return null;
+
+  const debt = await Debt.findOne({ invoiceId: invoice._id })
+    .select('invoiceId status totalAmount paidAmount remainingAmount paymentHistory')
+    .lean();
+
+  return {
+    ...invoice,
+    debt: debt || null
+  };
 };

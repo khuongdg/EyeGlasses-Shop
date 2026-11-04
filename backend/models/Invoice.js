@@ -56,4 +56,11 @@ const InvoiceSchema = new mongoose.Schema({
   isDraft: { type: Boolean, default: false }
 }, { timestamps: true });
 
+// Indexes tối ưu hiệu năng truy vấn hóa đơn
+InvoiceSchema.index({ createdAt: -1, isDraft: 1, isSample: 1 });
+InvoiceSchema.index({ customerId: 1, createdAt: -1 });
+InvoiceSchema.index({ customerPhone: 1, createdAt: -1 });
+InvoiceSchema.index({ paymentMethod: 1, createdAt: -1 });
+InvoiceSchema.index({ isActive: 1 });
+
 module.exports = createTenantModelProxy('Invoice', InvoiceSchema);
