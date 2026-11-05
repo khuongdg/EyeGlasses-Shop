@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import QRCode from 'qrcode';
 import debounce from 'lodash/debounce';
 import { useReactToPrint } from 'react-to-print';
@@ -57,6 +57,7 @@ const SampleLabels = () => {
 
     const [form] = Form.useForm();
     const watchTotalQuantity = Form.useWatch('totalQuantity', form);
+    const watchItems = Form.useWatch('items', form);
 
     const handlePrintLabels = useReactToPrint({
         contentRef: labelPrintRef,
@@ -129,7 +130,7 @@ const SampleLabels = () => {
     const fetchVariants = async () => {
         setVariantLoading(true);
         try {
-            const res = await getVariants({ isActive: true, limit: 1000 });
+            const res = await getVariants({ isActive: true, limit: 100000 });
             setVariants(res.data.data);
         } catch {
             message.error('Không tải được danh sách sản phẩm');
@@ -224,26 +225,105 @@ const SampleLabels = () => {
         }
     }, []);
 
-    /* ================= LOGIC FORM TẠO PHIẾU ================= */
-    const handleProductChange = (val, name) => {
-        const v = variants.find((x) => x._id === val);
-        if (v) {
-            const productName = v.productId?.name || '';
-            const brand = v.productId?.brand || 'N/A';
-            const originCountry = v.productId?.originCountry || 'N/A';
-            const unit = v.unit || 'Cây';
+    /* ================= LOGIC GOM NHÓM THEO MÃ HÀNG ================= */
+    const productGroups = useMemo(() => {
+        const map = new Map();
+        variants.forEach((v) => {
+            let code = v.productId?.name?.trim();
+            if (!code && v.sku) {
+                code = v.sku.includes('_') ? v.sku.split('_')[0] : v.sku;
+            }
+            if (!code) return;
 
-            form.setFieldValue(['items', name, 'sku'], v.sku);
-            form.setFieldValue(['items', name, 'productName'], productName);
-            form.setFieldValue(['items', name, 'brand'], brand);
-            form.setFieldValue(['items', name, 'originCountry'], originCountry);
-            form.setFieldValue(['items', name, 'unit'], unit);
-            form.setFieldValue(['items', name, 'price'], v.price);
-            form.setFieldValue(['items', name, 'quantity'], 1);
-            form.setFieldValue(['items', name, 'customerName'], ''); // Khách hàng tùy chọn in tem
-            
+            if (!map.has(code)) {
+                map.set(code, {
+                    productCode: code,
+                    brand: v.productId?.brand || 'Christian DG',
+                    originCountry: v.productId?.originCountry || 'PRC',
+                    unit: v.unit || 'Cây',
+                    variants: []
+                });
+            }
+            map.get(code).variants.push(v);
+        });
+        return map;
+    }, [variants]);
+
+    const productOptions = useMemo(() => {
+        return Array.from(productGroups.values())
+            .sort((a, b) => a.productCode.localeCompare(b.productCode))
+            .map((item) => ({
+                value: item.productCode,
+                label: `${item.productCode} (${item.brand}) • ${item.variants.length} màu`,
+                brand: item.brand,
+                variantsCount: item.variants.length
+            }));
+    }, [productGroups]);
+
+    /* ================= LOGIC FORM TẠO PHIẾU THEO MÃ HÀNG & SKU ================= */
+    const handleProductCodeChange = (code, name) => {
+        form.setFieldValue(['items', name, 'productCode'], code);
+        const group = productGroups.get(code);
+        if (group && group.variants.length > 0) {
+            // Tự động chọn variant đầu tiên khi vừa chọn Mã hàng
+            handleSelectSku(group.variants[0], name);
+        } else {
+            form.setFieldValue(['items', name, 'variantId'], undefined);
+            form.setFieldValue(['items', name, 'sku'], '');
+            form.setFieldValue(['items', name, 'productName'], '');
+            form.setFieldValue(['items', name, 'brand'], '');
+            form.setFieldValue(['items', name, 'originCountry'], '');
+            form.setFieldValue(['items', name, 'unit'], '');
+            form.setFieldValue(['items', name, 'price'], undefined);
             calculateTotals();
         }
+    };
+
+    const handleSelectSku = (v, name) => {
+        const productName = v.productId?.name || (v.sku.includes('_') ? v.sku.split('_')[0] : v.sku) || '';
+        const brand = v.productId?.brand || 'Christian DG';
+        const originCountry = v.productId?.originCountry || 'PRC';
+        const unit = v.unit || 'Cây';
+
+        form.setFieldValue(['items', name, 'productCode'], productName);
+        form.setFieldValue(['items', name, 'variantId'], v._id);
+        form.setFieldValue(['items', name, 'sku'], v.sku);
+        form.setFieldValue(['items', name, 'productName'], productName);
+        form.setFieldValue(['items', name, 'brand'], brand);
+        form.setFieldValue(['items', name, 'originCountry'], originCountry);
+        form.setFieldValue(['items', name, 'unit'], unit);
+        form.setFieldValue(['items', name, 'price'], v.price);
+
+        const currentQty = form.getFieldValue(['items', name, 'quantity']);
+        if (!currentQty || currentQty < 1) {
+            form.setFieldValue(['items', name, 'quantity'], 1);
+        }
+
+        calculateTotals();
+    };
+
+    const handleAddRemainingSkus = (productCode, remainingVariants, add) => {
+        remainingVariants.forEach((v) => {
+            const productName = v.productId?.name || productCode;
+            const brand = v.productId?.brand || 'Christian DG';
+            const originCountry = v.productId?.originCountry || 'PRC';
+            const unit = v.unit || 'Cây';
+
+            add({
+                productCode,
+                variantId: v._id,
+                sku: v.sku,
+                productName,
+                brand,
+                originCountry,
+                unit,
+                price: v.price || 0,
+                quantity: 1,
+                customerName: ''
+            });
+        });
+        setTimeout(() => calculateTotals(), 100);
+        message.success(`Đã thêm ${remainingVariants.length} màu của mã hàng ${productCode}`);
     };
 
     const calculateTotals = () => {
@@ -358,6 +438,11 @@ const SampleLabels = () => {
             title: 'Tổng số tem',
             dataIndex: 'totalQuantity',
             render: (v) => `${v || 0} tem`
+        },
+        {
+            title: 'Ghi chú',
+            dataIndex: 'note',
+            render: (note) => note ? <span className="text-gray-700">{note}</span> : <span className="text-gray-400 italic">-</span>
         },
         {
             title: 'Trạng thái',
@@ -542,6 +627,12 @@ const SampleLabels = () => {
                                         {invoice.totalQuantity || 0} tem
                                     </strong>
                                 </div>
+                                {invoice.note && (
+                                    <div>
+                                        <span className="text-gray-500">Ghi chú:</span>{' '}
+                                        <span className="text-gray-700 italic">{invoice.note}</span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Action Buttons */}
@@ -810,48 +901,115 @@ const SampleLabels = () => {
                         <Form.List name="items">
                             {(fields, { add, remove }) => (
                                 <>
-                                    {fields.map(({ key, name, ...restField }) => (
-                                        <div key={key} className="border rounded-lg p-4 mb-4 bg-gray-50 relative">
-                                            {/* Hidden fields */}
-                                            <Form.Item name={[name, 'sku']} hidden><Input /></Form.Item>
-                                            <Form.Item name={[name, 'productName']} hidden><Input /></Form.Item>
-                                            <Form.Item name={[name, 'originCountry']} hidden><Input /></Form.Item>
+                                    {fields.map(({ key, name, ...restField }) => {
+                                        const itemValues = watchItems?.[name] || {};
+                                        let currentProductCode = itemValues.productCode;
+                                        if (!currentProductCode && itemValues.variantId) {
+                                            const foundV = variants.find(v => v._id === itemValues.variantId);
+                                            currentProductCode = foundV?.productId?.name || (foundV?.sku?.includes('_') ? foundV.sku.split('_')[0] : foundV?.sku);
+                                        }
 
-                                            <Row gutter={12}>
-                                                <Col xs={24} md={12}>
-                                                    <Form.Item
-                                                        {...restField}
-                                                        label="Sản phẩm (SKU)"
-                                                        name={[name, 'variantId']}
-                                                        rules={[{ required: true, message: 'Vui lòng chọn sản phẩm' }]}
-                                                    >
-                                                        <Select
-                                                            showSearch
-                                                            placeholder="Tìm theo SKU"
-                                                            onChange={(val) => handleProductChange(val, name)}
-                                                            filterOption={(input, option) =>
-                                                                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                                            }
-                                                            options={variants.map(v => ({
-                                                                value: v._id,
-                                                                label: `${v.sku} - ${v.productId?.name || ''} (Tồn: ${v.inventory || 0})`
-                                                            }))}
-                                                        />
-                                                    </Form.Item>
-                                                </Col>
+                                        const currentGroup = currentProductCode ? productGroups.get(currentProductCode) : null;
+                                        const currentVariants = currentGroup?.variants || [];
+                                        const currentVariantId = itemValues.variantId;
+                                        const selectedVariant = variants.find(v => v._id === currentVariantId);
+                                        const selectedSku = itemValues.sku || selectedVariant?.sku;
+                                        const otherVariants = currentVariants.filter(v => v._id !== currentVariantId);
 
-                                                <Col xs={12} md={6}>
-                                                    <Form.Item label="Hãng sản xuất" name={[name, 'brand']}>
-                                                        <Input disabled placeholder="Hãng sản xuất" className="bg-gray-100" />
-                                                    </Form.Item>
-                                                </Col>
+                                        return (
+                                            <div key={key} className="border rounded-lg p-4 mb-4 bg-gray-50 relative">
+                                                {/* Hidden fields */}
+                                                <Form.Item name={[name, 'variantId']} rules={[{ required: true, message: 'Vui lòng chọn Mã hàng và click chọn SKU tương ứng' }]} hidden><Input /></Form.Item>
+                                                <Form.Item name={[name, 'sku']} hidden><Input /></Form.Item>
+                                                <Form.Item name={[name, 'productName']} hidden><Input /></Form.Item>
+                                                <Form.Item name={[name, 'originCountry']} hidden><Input /></Form.Item>
 
-                                                <Col xs={12} md={6}>
-                                                    <Form.Item label="Đơn vị tính" name={[name, 'unit']}>
-                                                        <Input disabled placeholder="Đvt" className="bg-gray-100" />
-                                                    </Form.Item>
-                                                </Col>
-                                            </Row>
+                                                <Row gutter={12}>
+                                                    <Col xs={24} md={12}>
+                                                        <Form.Item
+                                                            label={<span className="font-semibold text-gray-700">Mã hàng</span>}
+                                                            name={[name, 'productCode']}
+                                                            rules={[{ required: true, message: 'Vui lòng chọn Mã hàng' }]}
+                                                        >
+                                                            <Select
+                                                                showSearch
+                                                                allowClear
+                                                                placeholder="Tìm theo Mã hàng (VD: 8619, 8617...)"
+                                                                onChange={(val) => handleProductCodeChange(val, name)}
+                                                                filterOption={(input, option) =>
+                                                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                                                }
+                                                                options={productOptions}
+                                                                className="w-full"
+                                                            />
+                                                        </Form.Item>
+                                                    </Col>
+
+                                                    <Col xs={12} md={6}>
+                                                        <Form.Item label="Hãng sản xuất" name={[name, 'brand']}>
+                                                            <Input disabled placeholder="Hãng sản xuất" className="bg-gray-100" />
+                                                        </Form.Item>
+                                                    </Col>
+
+                                                    <Col xs={12} md={6}>
+                                                        <Form.Item label="Đơn vị tính" name={[name, 'unit']}>
+                                                            <Input disabled placeholder="Đvt" className="bg-gray-100" />
+                                                        </Form.Item>
+                                                    </Col>
+                                                </Row>
+
+                                                {/* DANH SÁCH CÁC SKU CỦA MÃ HÀNG ĐỂ CLICK CHỌN */}
+                                                {currentVariants.length > 0 && (
+                                                    <div className="mb-3 p-3 bg-blue-50/70 rounded-lg border border-blue-100">
+                                                        <div className="flex flex-wrap items-center justify-between gap-1 mb-2">
+                                                            <div className="text-xs font-semibold text-gray-700 flex items-center gap-1.5 flex-wrap">
+                                                                <span>Click chọn SKU mong muốn:</span>
+                                                                {selectedSku && (
+                                                                    <Tag color="blue" className="font-bold border-0 px-2 py-0.5">
+                                                                        Đã chọn: {selectedSku}
+                                                                    </Tag>
+                                                                )}
+                                                            </div>
+                                                            {otherVariants.length > 0 && (
+                                                                <Button
+                                                                    type="link"
+                                                                    size="small"
+                                                                    className="text-xs text-blue-600 p-0 h-auto font-medium"
+                                                                    onClick={() => handleAddRemainingSkus(currentProductCode, otherVariants, add)}
+                                                                >
+                                                                    + Thêm {otherVariants.length} màu còn lại vào phiếu in
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {currentVariants.map((v) => {
+                                                                const isSelected = currentVariantId === v._id;
+                                                                return (
+                                                                    <button
+                                                                        type="button"
+                                                                        key={v._id}
+                                                                        onClick={() => handleSelectSku(v, name)}
+                                                                        className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-all flex items-center gap-1.5 cursor-pointer ${
+                                                                            isSelected
+                                                                                ? 'bg-blue-600 text-white border-blue-600 shadow-sm font-semibold'
+                                                                                : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                                                                        }`}
+                                                                    >
+                                                                        {isSelected && <span className="font-bold">✓</span>}
+                                                                        <span className="font-mono">{v.sku}</span>
+                                                                        <span className={isSelected ? 'text-blue-200' : 'text-gray-300'}>|</span>
+                                                                        <span className={isSelected ? 'text-blue-100' : 'text-gray-500'}>
+                                                                            Tồn: {v.inventory ?? 0}
+                                                                        </span>
+                                                                        <span className={isSelected ? 'text-yellow-200 font-bold' : 'text-blue-600 font-semibold'}>
+                                                                            {v.price ? `${v.price.toLocaleString()}₫` : ''}
+                                                                        </span>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                             <Row gutter={12}>
                                                 <Col xs={24} sm={12} md={8}>
@@ -893,7 +1051,8 @@ const SampleLabels = () => {
                                                 </Col>
                                             </Row>
                                         </div>
-                                    ))}
+                                    );
+                                })}
 
                                     <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />} className="mb-4">
                                         Thêm sản phẩm in tem
