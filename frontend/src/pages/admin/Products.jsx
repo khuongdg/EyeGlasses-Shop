@@ -35,6 +35,7 @@ import {
     aiBulkImport,
     getAllVariants
 } from '../../services/productService';
+import { getAllImports } from '../../services/importService';
 
 const { Title } = Typography;
 
@@ -256,184 +257,370 @@ const Products = () => {
         message.success('Tải file mẫu kèm hướng dẫn thành công!');
     };
 
+    /* ================= XUẤT EXCEL THỐNG KÊ TỒN KHO THEO SỐ LÔ ================= */
     const exportInventoryToExcel = async () => {
         setExportLoading(true);
         try {
-            // Lấy toàn bộ danh sách biến thể (sử dụng limit cao để quét hết)
-            const res = await getAllVariants({ limit: 100000 });
-            const variants = res.data.data || [];
+            // Lấy đồng thời danh sách biến thể tồn kho và toàn bộ phiếu nhập kho
+            const [variantsRes, importsRes] = await Promise.all([
+                getAllVariants({ limit: 100000 }),
+                getAllImports({ limit: 100000 }).catch(err => {
+                    console.warn('Không thể tải phiếu nhập kho, tiếp tục xuất tồn kho không phân lô:', err);
+                    return { data: { data: [] } };
+                })
+            ]);
+
+            const variants = variantsRes.data.data || [];
+            const importList = importsRes.data?.data || [];
 
             if (variants.length === 0) {
                 message.warning('Không có dữ liệu hàng tồn kho để xuất!');
                 return;
             }
 
-            const workbook = new ExcelJS.Workbook();
-            const worksheet = workbook.addWorksheet('Thong_Ke_Ton_Kho');
+            // 1. Lập bảng lịch sử các đợt nhập kho theo SKU (sắp xếp từ MỚI NHẤT -> CŨ NHẤT)
+            const sortedImports = [...importList].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+            const skuImportHistory = new Map();
 
-            // 1. Thiết lập độ rộng cột
-            worksheet.columns = [
-                { key: 'stt', width: 8 },
-                { key: 'productName', width: 30 },
-                { key: 'sku', width: 22 },
-                { key: 'brand', width: 20 },
-                { key: 'colorCode', width: 12 },
-                { key: 'unit', width: 12 },
-                { key: 'price', width: 18 },
-                { key: 'inventory', width: 18 },
-            ];
+            sortedImports.forEach(receipt => {
+                const defaultBatch = (receipt.batchCode || '').trim() || 'Chưa phân lô';
+                (receipt.items || []).forEach(item => {
+                    const rawSku = (item.sku || item.variantId?.sku || '').trim().toUpperCase();
+                    if (!rawSku) return;
 
-            worksheet.spliceRows(1, 1);
+                    const batchCode = (item.batchCode || '').trim() || defaultBatch;
+                    const qty = Number(item.quantity) || 0;
+                    const originCountry = item.originCountry || item.variantId?.productId?.originCountry;
 
-            // 2. Tiêu đề Báo cáo
-            const titleRow = worksheet.addRow(['BÁO CÁO THỐNG KÊ TỒN KHO SẢN PHẨM']);
-            worksheet.mergeCells('A1:H1');
-            titleRow.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FF1D6F42' } };
-            titleRow.alignment = { vertical: 'middle', horizontal: 'center' };
-            titleRow.height = 35;
+                    if (!skuImportHistory.has(rawSku)) {
+                        skuImportHistory.set(rawSku, []);
+                    }
 
-            const timeRow = worksheet.addRow([`Ngày xuất báo cáo: ${new Date().toLocaleString('vi-VN')}`]);
-            worksheet.mergeCells('A2:H2');
-            timeRow.font = { name: 'Arial', size: 10, italic: true };
-            timeRow.alignment = { vertical: 'middle', horizontal: 'center' };
-            timeRow.height = 20;
-
-            worksheet.addRow([]); // Dòng trống
-
-            // 3. Tiêu đề Bảng
-            const headers = [
-                'STT',
-                'Tên sản phẩm',
-                'Mã SKU',
-                'Thương hiệu',
-                'Màu sắc',
-                'Đơn vị',
-                'Giá bán (₫)',
-                'Số lượng tồn'
-            ];
-            const headerRow = worksheet.addRow(headers);
-            headerRow.height = 28;
-            headerRow.eachCell((cell) => {
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D6F42' } }; // Xanh Excel
-                cell.font = { name: 'Arial', bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-                cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                cell.border = {
-                    top: { style: 'thin', color: { argb: 'FFD3D3D3' } },
-                    left: { style: 'thin', color: { argb: 'FFD3D3D3' } },
-                    bottom: { style: 'thin', color: { argb: 'FFD3D3D3' } },
-                    right: { style: 'thin', color: { argb: 'FFD3D3D3' } }
-                };
-            });
-
-            // Gom nhóm & Sắp xếp các biến thể để sản phẩm cùng tên nằm cạnh nhau
-            const grouped = {};
-            const productOrder = [];
-            variants.forEach(v => {
-                const name = v.productId?.name || 'N/A';
-                if (!grouped[name]) {
-                    grouped[name] = [];
-                    productOrder.push(name);
-                }
-                grouped[name].push(v);
-            });
-
-            productOrder.sort((a, b) => a.localeCompare(b, 'vi', { sensitivity: 'base' }));
-
-            const sortedVariants = [];
-            productOrder.forEach(name => {
-                const group = grouped[name].sort((a, b) => (a.sku || '').localeCompare(b.sku || ''));
-                sortedVariants.push(...group);
-            });
-
-            // 4. Đổ dữ liệu hàng tồn kho
-            let totalInventory = 0;
-            sortedVariants.forEach((v, index) => {
-                totalInventory += v.inventory || 0;
-                const row = worksheet.addRow([
-                    index + 1,
-                    v.productId?.name || 'N/A',
-                    v.sku,
-                    v.productId?.brand || 'N/A',
-                    v.colorCode || 'N/A',
-                    v.unit || 'Cây',
-                    v.price || 0,
-                    v.inventory || 0
-                ]);
-
-                row.height = 22;
-
-                // Định dạng số cho Giá bán và Số lượng tồn
-                row.getCell(7).numFmt = '#,##0';
-                row.getCell(8).numFmt = '#,##0';
-
-                // Định dạng font, đường viền và căn giữa nội dung cho tất cả các cột
-                row.eachCell(cell => {
-                    cell.font = { name: 'Arial', size: 10 };
-                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                    cell.border = {
-                        top: { style: 'thin', color: { argb: 'FFD3D3D3' } },
-                        left: { style: 'thin', color: { argb: 'FFD3D3D3' } },
-                        bottom: { style: 'thin', color: { argb: 'FFD3D3D3' } },
-                        right: { style: 'thin', color: { argb: 'FFD3D3D3' } }
-                    };
+                    skuImportHistory.get(rawSku).push({
+                        batchCode,
+                        quantity: qty,
+                        importPrice: Number(item.importPrice) || 0,
+                        originCountry,
+                        date: receipt.createdAt
+                    });
                 });
             });
 
-            // Tìm và gộp các ô Tên sản phẩm trùng nhau (Cột B / số 2)
-            // Dòng dữ liệu bắt đầu từ dòng số 5
-            let startRow = 5;
-            for (let i = 1; i < sortedVariants.length; i++) {
-                const currentName = sortedVariants[i].productId?.name || 'N/A';
-                const prevName = sortedVariants[i - 1].productId?.name || 'N/A';
+            // 2. Gom nhóm dữ liệu tồn kho theo: Số lô -> Mã hàng -> Mã màu
+            const batchMap = new Map();
 
-                if (currentName !== prevName) {
-                    const endRow = 5 + i - 1;
-                    if (endRow > startRow) {
-                        worksheet.mergeCells(startRow, 2, endRow, 2);
-                    }
-                    startRow = 5 + i;
+            variants.forEach(v => {
+                const rawSku = (v.sku || '').trim().toUpperCase();
+                let productCode = '';
+                let colorCode = '';
+
+                if (v.productId?.name) {
+                    productCode = v.productId.name.trim();
+                    colorCode = v.colorCode || '';
+                } else if (rawSku.includes('_')) {
+                    const parts = rawSku.split('_');
+                    productCode = parts[0];
+                    colorCode = parts.slice(1).join('_');
+                } else {
+                    productCode = rawSku || 'N/A';
+                    colorCode = v.colorCode || '-';
                 }
-            }
-            const finalEndRow = 5 + sortedVariants.length - 1;
-            if (finalEndRow > startRow) {
-                worksheet.mergeCells(startRow, 2, finalEndRow, 2);
+
+                const brand = v.productId?.brand || 'Christian DG';
+                const originCountry = v.productId?.originCountry || 'PRC';
+                const unit = v.unit || 'Cây';
+                const price = Number(v.price) || 0;
+                const currentInv = Number(v.inventory) || 0;
+
+                const addToBatch = (bCode, qty, origin) => {
+                    const batch = (bCode || '').trim() || 'Chưa phân lô';
+                    if (!batchMap.has(batch)) {
+                        batchMap.set(batch, new Map());
+                    }
+                    const productMap = batchMap.get(batch);
+                    if (!productMap.has(productCode)) {
+                        productMap.set(productCode, {
+                            productCode,
+                            brand,
+                            originCountry: origin || originCountry,
+                            unit,
+                            colors: new Map()
+                        });
+                    }
+                    const prod = productMap.get(productCode);
+                    if (!prod.colors.has(colorCode)) {
+                        prod.colors.set(colorCode, {
+                            colorCode,
+                            price,
+                            inventory: 0,
+                            totalAmount: 0
+                        });
+                    }
+                    const col = prod.colors.get(colorCode);
+                    col.inventory += qty;
+                    col.totalAmount += qty * price;
+                };
+
+                const history = skuImportHistory.get(rawSku) || [];
+
+                if (history.length === 0) {
+                    // Chưa từng nhập kho qua phiếu nhập -> gán vào 'Chưa phân lô'
+                    addToBatch('Chưa phân lô', currentInv, originCountry);
+                } else if (currentInv <= 0) {
+                    // Hàng hết tồn kho (inventory = 0) -> gắn vào lô gần nhất để theo dõi
+                    addToBatch(history[0].batchCode, 0, history[0].originCountry || originCountry);
+                } else {
+                    // Phân bổ tồn kho theo các lô nhập gần nhất (FIFO)
+                    let remainingToAssign = currentInv;
+
+                    for (const record of history) {
+                        if (remainingToAssign <= 0) break;
+                        const assignQty = Math.min(remainingToAssign, record.quantity);
+                        if (assignQty > 0) {
+                            addToBatch(record.batchCode, assignQty, record.originCountry || originCountry);
+                            remainingToAssign -= assignQty;
+                        }
+                    }
+
+                    // Nếu số lượng tồn kho còn vượt quá tổng số lượng trong các phiếu nhập, cộng vào lô gần nhất
+                    if (remainingToAssign > 0) {
+                        addToBatch(history[0].batchCode, remainingToAssign, history[0].originCountry || originCountry);
+                    }
+                }
+            });
+
+            if (batchMap.size === 0) {
+                message.warning('Không tìm thấy dữ liệu tồn kho hợp lệ!');
+                return;
             }
 
-            // 5. Dòng Tổng cộng
-            const totalRow = worksheet.addRow([
-                'TỔNG CỘNG',
-                '', '', '', '', '', '',
-                totalInventory
+            // Sắp xếp các Số lô: Lô có mã (VD: T05-2026, T06-2026) xếp theo bảng chữ cái, 'Chưa phân lô' đưa xuống cuối
+            const sortedBatchCodes = Array.from(batchMap.keys()).sort((a, b) => {
+                if (a === 'Chưa phân lô') return 1;
+                if (b === 'Chưa phân lô') return -1;
+                return a.localeCompare(b);
+            });
+
+            // 3. Khởi tạo Workbook ExcelJS
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Thong_Ke_Ton_Kho');
+
+            // Cấu hình các cột (đồng bộ cấu trúc với Xuất thống kê nhập hàng)
+            worksheet.columns = [
+                { header: 'STT', key: 'stt', width: 8 },
+                { header: 'Số lô', key: 'batchCode', width: 16 },
+                { header: 'Mã hàng', key: 'productCode', width: 16 },
+                { header: 'Mã màu', key: 'colorCode', width: 12 },
+                { header: 'Thương hiệu', key: 'brand', width: 18 },
+                { header: 'Xuất xứ', key: 'originCountry', width: 14 },
+                { header: 'ĐVT', key: 'unit', width: 10 },
+                { header: 'Giá bán (₫)', key: 'price', width: 16 },
+                { header: 'Số lượng tồn', key: 'inventory', width: 16 },
+                { header: 'Thành tiền (₫)', key: 'totalAmount', width: 20 },
+            ];
+
+            // Tiêu đề Báo Cáo
+            worksheet.spliceRows(1, 1);
+            const titleRow = worksheet.addRow(['BÁO CÁO THỐNG KÊ CHI TIẾT TỒN KHO']);
+            worksheet.mergeCells('A1:J1');
+            titleRow.font = { name: 'Arial', size: 15, bold: true, color: { argb: 'FF1D6F42' } };
+            titleRow.alignment = { horizontal: 'center', vertical: 'middle' };
+            titleRow.height = 36;
+
+            const subTitleRow = worksheet.addRow([`Ngày xuất báo cáo: ${new Date().toLocaleDateString('vi-VN')} | Đơn vị: Hệ thống quản trị kho`]);
+            worksheet.mergeCells('A2:J2');
+            subTitleRow.font = { name: 'Arial', italic: true, size: 10, color: { argb: 'FF555555' } };
+            subTitleRow.alignment = { horizontal: 'center', vertical: 'middle' };
+            subTitleRow.height = 20;
+
+            worksheet.addRow([]);
+
+            // Header bảng
+            const headerRow = worksheet.addRow([
+                'STT',
+                'Số lô',
+                'Mã hàng',
+                'Mã màu',
+                'Thương hiệu',
+                'Xuất xứ',
+                'ĐVT',
+                'Giá bán',
+                'Số lượng tồn',
+                'Thành tiền'
             ]);
-            worksheet.mergeCells(`A${totalRow.number}:G${totalRow.number}`);
-            totalRow.height = 26;
-
-            totalRow.getCell(1).font = { name: 'Arial', bold: true, size: 11 };
-            totalRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-
-            const totalInvCell = totalRow.getCell(8);
-            totalInvCell.font = { name: 'Arial', bold: true, size: 11, color: { argb: 'FFFF0000' } }; // Chữ đỏ làm nổi bật
-            totalInvCell.numFmt = '#,##0';
-            totalInvCell.alignment = { horizontal: 'right', vertical: 'middle' };
-
-            // Thẩm mỹ dòng tổng cộng
-            totalRow.eachCell(cell => {
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } }; // Nền xám nhạt
+            headerRow.height = 26;
+            headerRow.eachCell((cell) => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D6F42' } };
+                cell.font = { name: 'Arial', bold: true, color: { argb: 'FFFFFFFF' } };
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
                 cell.border = {
-                    top: { style: 'thin', color: { argb: 'FF999999' } },
-                    left: { style: 'thin', color: { argb: 'FF999999' } },
-                    bottom: { style: 'double', color: { argb: 'FF000000' } }, // Viền đôi ở dưới
-                    right: { style: 'thin', color: { argb: 'FF999999' } }
+                    top: { style: 'thin' },
+                    left: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    right: { style: 'thin' }
                 };
             });
 
-            // 6. Lưu file
+            // 4. Đổ dữ liệu từng Số lô: Cùng mã hàng gộp 1 ô, mã màu hiển thị theo mã hàng, mỗi số lô tính tổng riêng
+            let sttCounter = 1;
+            let grandTotalQty = 0;
+            let grandTotalAmount = 0;
+
+            sortedBatchCodes.forEach(batchCode => {
+                const productMap = batchMap.get(batchCode);
+                const sortedProducts = Array.from(productMap.values()).sort((a, b) => a.productCode.localeCompare(b.productCode));
+
+                let batchTotalQty = 0;
+                let batchTotalAmount = 0;
+                const batchStartRow = worksheet.lastRow.number + 1;
+
+                sortedProducts.forEach(prod => {
+                    const colorList = Array.from(prod.colors.values()).sort((a, b) => a.colorCode.localeCompare(b.colorCode));
+                    const prodStartRow = worksheet.lastRow.number + 1;
+
+                    colorList.forEach(color => {
+                        const row = worksheet.addRow([
+                            sttCounter,
+                            batchCode,
+                            prod.productCode,
+                            color.colorCode,
+                            prod.brand,
+                            prod.originCountry,
+                            prod.unit,
+                            color.price,
+                            color.inventory,
+                            color.totalAmount
+                        ]);
+
+                        row.height = 24;
+
+                        // Căn chỉnh nội dung
+                        row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                        row.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' };
+                        row.getCell(2).font = { name: 'Arial', bold: true, color: { argb: 'FF1677FF' } };
+
+                        row.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
+                        row.getCell(3).font = { name: 'Arial', bold: true };
+
+                        row.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
+                        row.getCell(5).alignment = { horizontal: 'center', vertical: 'middle' };
+                        row.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
+                        row.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
+
+                        // Giá bán
+                        row.getCell(8).alignment = { horizontal: 'right', vertical: 'middle' };
+                        row.getCell(8).numFmt = '#,##0';
+
+                        // Số lượng tồn
+                        row.getCell(9).alignment = { horizontal: 'center', vertical: 'middle' };
+                        row.getCell(9).font = { name: 'Arial', bold: true };
+                        row.getCell(9).numFmt = '#,##0';
+
+                        // Thành tiền
+                        row.getCell(10).alignment = { horizontal: 'right', vertical: 'middle' };
+                        row.getCell(10).font = { name: 'Arial', bold: true };
+                        row.getCell(10).numFmt = '#,##0';
+
+                        row.eachCell((cell) => {
+                            cell.border = {
+                                top: { style: 'thin' },
+                                left: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                right: { style: 'thin' }
+                            };
+                        });
+
+                        batchTotalQty += color.inventory;
+                        batchTotalAmount += color.totalAmount;
+                    });
+
+                    const prodEndRow = worksheet.lastRow.number;
+
+                    // GỘP Ô CHO CÙNG MÃ HÀNG: Cùng mã hàng sẽ gộp lại thành 1 ô trên cột, mã màu hiển thị theo mã hàng đã gộp
+                    if (prodEndRow > prodStartRow) {
+                        worksheet.mergeCells(`A${prodStartRow}:A${prodEndRow}`); // STT
+                        worksheet.mergeCells(`C${prodStartRow}:C${prodEndRow}`); // Mã hàng
+                        worksheet.mergeCells(`E${prodStartRow}:E${prodEndRow}`); // Thương hiệu
+                        worksheet.mergeCells(`F${prodStartRow}:F${prodEndRow}`); // Xuất xứ
+                        worksheet.mergeCells(`G${prodStartRow}:G${prodEndRow}`); // ĐVT
+                    }
+
+                    sttCounter++;
+                });
+
+                const batchEndRow = worksheet.lastRow.number;
+
+                // Gộp ô cột Số lô cho toàn bộ khối của lô đó
+                if (batchEndRow > batchStartRow) {
+                    worksheet.mergeCells(`B${batchStartRow}:B${batchEndRow}`);
+                }
+
+                // DÒNG TÍNH TỔNG RIÊNG CHO TỪNG SỐ LÔ (Tổng tồn kho và tổng tiền theo lô)
+                const batchSummaryRow = worksheet.addRow([
+                    `TỔNG SỐ LÔ [ ${batchCode} ]`,
+                    '', '', '', '', '', '', '',
+                    batchTotalQty,
+                    batchTotalAmount
+                ]);
+                const bIdx = batchSummaryRow.number;
+                worksheet.mergeCells(`A${bIdx}:H${bIdx}`);
+
+                batchSummaryRow.height = 26;
+                batchSummaryRow.eachCell((cell) => {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F4FF' } }; // Màu xanh băng dịu mắt
+                    cell.font = { name: 'Arial', bold: true, color: { argb: 'FF0958D9' } };
+                    cell.border = {
+                        top: { style: 'thin' },
+                        left: { style: 'thin' },
+                        bottom: { style: 'thin' },
+                        right: { style: 'thin' }
+                    };
+                });
+                batchSummaryRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                batchSummaryRow.getCell(9).alignment = { horizontal: 'center', vertical: 'middle' };
+                batchSummaryRow.getCell(9).numFmt = '#,##0';
+                batchSummaryRow.getCell(10).alignment = { horizontal: 'right', vertical: 'middle' };
+                batchSummaryRow.getCell(10).numFmt = '#,##0';
+
+                // Cộng dồn vào tổng toàn bộ
+                grandTotalQty += batchTotalQty;
+                grandTotalAmount += batchTotalAmount;
+            });
+
+            // 5. Dòng Tổng Cộng toàn bộ các lô (Grand Total)
+            const summaryRow = worksheet.addRow([
+                'TỔNG CỘNG TOÀN BỘ CÁC LÔ',
+                '', '', '', '', '', '', '',
+                grandTotalQty,
+                grandTotalAmount
+            ]);
+            const summaryRowIdx = summaryRow.number;
+            worksheet.mergeCells(`A${summaryRowIdx}:H${summaryRowIdx}`);
+
+            summaryRow.height = 28;
+            summaryRow.eachCell((cell) => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1E7DD' } }; // Nền xanh lá nổi bật
+                cell.font = { name: 'Arial', bold: true, color: { argb: 'FF0F5132' } };
+                cell.border = {
+                    top: { style: 'medium' },
+                    left: { style: 'thin' },
+                    bottom: { style: 'double' },
+                    right: { style: 'thin' }
+                };
+            });
+            summaryRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+            summaryRow.getCell(9).alignment = { horizontal: 'center', vertical: 'middle' };
+            summaryRow.getCell(9).numFmt = '#,##0';
+            summaryRow.getCell(10).alignment = { horizontal: 'right', vertical: 'middle' };
+            summaryRow.getCell(10).numFmt = '#,##0';
+
+            // Xuất file
             const buffer = await workbook.xlsx.writeBuffer();
-            const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-            saveAs(new Blob([buffer]), `Bao_Cao_Ton_Kho_${dateStr}.xlsx`);
-            message.success('Xuất file thống kê tồn kho thành công!');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            saveAs(new Blob([buffer]), `Thong_Ke_Ton_Kho_${dateStr}.xlsx`);
+            message.success('Xuất file Excel thống kê tồn kho thành công!');
         } catch (err) {
-            console.error('Export inventory error:', err);
+            console.error('Lỗi xuất Excel tồn kho:', err);
             message.error(err.response?.data?.message || 'Có lỗi xảy ra khi xuất file Excel');
         } finally {
             setExportLoading(false);
