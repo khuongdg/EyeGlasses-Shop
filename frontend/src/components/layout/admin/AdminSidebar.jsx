@@ -10,7 +10,8 @@ import {
   ImportOutlined,
   BoxPlotOutlined,
   CrownOutlined,
-  BarcodeOutlined
+  BarcodeOutlined,
+  DeleteOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Typography, Grid } from 'antd';
@@ -103,6 +104,7 @@ const AdminSidebar = ({ collapsed, setCollapsed }) => {
             children: [
               { key: '/admin/products', label: 'Sản phẩm', icon: <ShoppingOutlined /> },
               { key: '/admin/import-goods', label: 'Nhập hàng kho', icon: <ImportOutlined /> },
+              { key: '/admin/product-disposals', label: 'Huỷ sản phẩm', icon: <DeleteOutlined /> },
             ],
           },
           {

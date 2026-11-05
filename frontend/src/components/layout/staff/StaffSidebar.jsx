@@ -6,7 +6,8 @@ import {
     UserOutlined,
     BoxPlotOutlined,
     ImportOutlined,
-    ShoppingOutlined
+    ShoppingOutlined,
+    DeleteOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -34,6 +35,7 @@ const StaffSidebar = ({ collapsed }) => {
             children: [
                 { key: '/staff/products', label: 'Sản phẩm', icon: <ShoppingOutlined /> },
                 { key: '/staff/import-goods', label: 'Nhập hàng kho', icon: <ImportOutlined /> },
+                { key: '/staff/product-disposals', label: 'Huỷ sản phẩm', icon: <DeleteOutlined /> },
             ],
         },
     ];

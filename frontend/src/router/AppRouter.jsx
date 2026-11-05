@@ -14,6 +14,7 @@ import Invoices from '../pages/admin/Invoices';
 import Debts from '../pages/admin/Debts';
 import ImportGoods from '../pages/admin/ImportGoods';
 import SampleLabels from '../pages/admin/SampleLabels';
+import ProductDisposals from '../pages/admin/ProductDisposals';
 
 // staff pages
 import StaffLayout from '../components/layout/staff/StaffLayout';
@@ -37,6 +38,7 @@ export default function AppRouter() {
           <Route path="sample-labels" element={<SampleLabels />} />
           <Route path="debts" element={<Debts />} />
           <Route path="import-goods" element={<ImportGoods />} />
+          <Route path="product-disposals" element={<ProductDisposals />} />
         </Route>
 
         {/* Staff */}
@@ -45,6 +47,7 @@ export default function AppRouter() {
           <Route path="customers" element={<Customers />} />
           <Route path="products" element={<Products />} />
           <Route path="import-goods" element={<ImportGoods />} />
+          <Route path="product-disposals" element={<ProductDisposals />} />
         </Route>
 
         {/* Redirect mặc định */}

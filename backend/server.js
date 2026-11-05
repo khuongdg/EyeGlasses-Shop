@@ -108,6 +108,7 @@ app.use('/api/company', require('./routes/companyRoute'));
 app.use('/api/staffs', require('./routes/staffRoute'));
 app.use('/api/invoices', require('./routes/invoiceRoute'));
 app.use('/api/imports', require('./routes/importRoute'));
+app.use('/api/disposals', require('./routes/disposalRoute'));
 app.use('/api/dashboard', require('./routes/dashboardRoute'));
 
 // Tự động ping giữ Backend Render không bị ngủ (Self-ping every 10 mins)
