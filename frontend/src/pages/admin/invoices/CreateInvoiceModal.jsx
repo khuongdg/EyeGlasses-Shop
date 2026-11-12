@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
     Modal,
     Form,
@@ -12,12 +12,14 @@ import {
     Checkbox,
     Button,
     Space,
+    Tooltip,
     message
 } from 'antd';
 import {
     InboxOutlined,
     CameraOutlined,
-    DeleteOutlined
+    DeleteOutlined,
+    CheckOutlined
 } from '@ant-design/icons';
 
 const { Text, Title } = Typography;
@@ -48,6 +50,120 @@ const CreateInvoiceModal = ({
     watchTotalDiscount,
     watchTotalAmount
 }) => {
+    // State chọn mức đơn giá áp dụng chiết khấu hàng loạt
+    const [bulkTargetPrice, setBulkTargetPrice] = useState(null);
+
+    // Tính danh sách các mức đơn giá duy nhất trong danh sách sản phẩm
+    const uniquePrices = useMemo(() => {
+        const map = new Map();
+        (watchItems || []).forEach((item, index) => {
+            if (!item || item.price == null) return;
+            const p = Number(item.price) || 0;
+            if (!map.has(p)) {
+                map.set(p, []);
+            }
+            map.get(p).push(index);
+        });
+        return Array.from(map.entries()).map(([price, indexes]) => ({
+            price,
+            count: indexes.length,
+            indexes
+        }));
+    }, [watchItems]);
+
+    // Danh sách options cho Select chọn mức đơn giá áp dụng
+    const priceOptions = useMemo(() => {
+        const opts = [];
+
+        // Tùy chọn áp dụng tất cả nếu có nhiều sản phẩm
+        if ((watchItems || []).length > 1) {
+            opts.push({
+                value: 'ALL',
+                label: `Tất cả sản phẩm (${(watchItems || []).length} SP)`
+            });
+        }
+
+        // Từng mức đơn giá cụ thể
+        uniquePrices.forEach(up => {
+            opts.push({
+                value: up.price,
+                label: `Đơn giá ${up.price.toLocaleString('vi-VN')} ₫ (${up.count} SP)`
+            });
+        });
+
+        return opts;
+    }, [uniquePrices, watchItems]);
+
+    // Tự động đồng bộ bulkTargetPrice
+    useEffect(() => {
+        if (uniquePrices.length > 0) {
+            const hasCurrent = bulkTargetPrice === 'ALL' || uniquePrices.some(up => up.price === bulkTargetPrice);
+            if (!hasCurrent) {
+                setBulkTargetPrice(uniquePrices[0].price);
+            }
+        } else {
+            setBulkTargetPrice(null);
+        }
+    }, [uniquePrices, bulkTargetPrice]);
+
+    // Số lượng sản phẩm khớp với lựa chọn áp dụng hiện tại
+    const matchedCount = useMemo(() => {
+        if (bulkTargetPrice === 'ALL') return (watchItems || []).length;
+        if (bulkTargetPrice == null) return 0;
+        return (watchItems || []).filter(item => item && Number(item.price) === Number(bulkTargetPrice)).length;
+    }, [watchItems, bulkTargetPrice]);
+
+    // Hàm áp dụng chiết khấu hàng loạt
+    const handleApplyBulkDiscount = () => {
+        if (bulkDiscount === null || bulkDiscount === undefined || bulkDiscount === '' || bulkDiscount < 0 || bulkDiscount > 100) {
+            message.warning('Vui lòng nhập phần trăm chiết khấu hợp lệ (0 - 100%)');
+            return;
+        }
+
+        const currentItems = form.getFieldValue('items') || [];
+        if (currentItems.length === 0) {
+            message.warning('Chưa có sản phẩm nào trong danh sách');
+            return;
+        }
+
+        let updatedCount = 0;
+        const updatedItems = currentItems.map((item) => {
+            if (!item) return item;
+            const itemPrice = Number(item.price) || 0;
+
+            let shouldUpdate = false;
+            if (bulkTargetPrice === 'ALL') {
+                shouldUpdate = true;
+            } else if (bulkTargetPrice !== null && bulkTargetPrice !== undefined) {
+                shouldUpdate = itemPrice === Number(bulkTargetPrice);
+            }
+
+            if (shouldUpdate) {
+                updatedCount++;
+                return {
+                    ...item,
+                    discountPercent: Number(bulkDiscount)
+                };
+            }
+            return item;
+        });
+
+        if (updatedCount === 0) {
+            message.warning('Không có sản phẩm nào khớp với mức đơn giá đã chọn');
+            return;
+        }
+
+        form.setFieldsValue({ items: updatedItems });
+        calculateTotals();
+        updateActiveDraft();
+
+        const desc = bulkTargetPrice === 'ALL'
+            ? `tất cả ${updatedCount} sản phẩm`
+            : `${updatedCount} sản phẩm có đơn giá ${Number(bulkTargetPrice).toLocaleString('vi-VN')} ₫`;
+
+        message.success(`Đã áp dụng chiết khấu ${bulkDiscount}% cho ${desc}`);
+    };
+
     return (
         <Modal
             title="Tạo phiếu xuất kho"
@@ -238,73 +354,46 @@ const CreateInvoiceModal = ({
                                             {/* Bulk Discount Bar */}
                                             <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-blue-50/80 rounded-lg border border-blue-100 mb-3">
                                                 <div className="flex items-center gap-2">
-                                                    <Checkbox
-                                                        checked={fields.length > 0 && selectedItemIndexes.length === fields.length}
-                                                        indeterminate={selectedItemIndexes.length > 0 && selectedItemIndexes.length < fields.length}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) {
-                                                                setSelectedItemIndexes(fields.map(f => f.name));
-                                                            } else {
-                                                                setSelectedItemIndexes([]);
-                                                            }
-                                                        }}
-                                                    >
-                                                        <span className="text-xs font-semibold text-gray-700">
-                                                            {selectedItemIndexes.length > 0 ? (
-                                                                <>Đã chọn: <span className="text-blue-600 font-bold">{selectedItemIndexes.length}</span> / {fields.length} sản phẩm</>
-                                                            ) : (
-                                                                <>Chọn tất cả ({fields.length} sản phẩm)</>
-                                                            )}
-                                                        </span>
-                                                    </Checkbox>
+                                                    <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">Áp dụng chiết khấu theo đơn giá:</span>
                                                 </div>
-                                                <div className="flex items-center gap-2 flex-nowrap">
-                                                    <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">Nhập % chiết khấu:</span>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">Đơn giá:</span>
+                                                    <Select
+                                                        size="middle"
+                                                        value={bulkTargetPrice}
+                                                        onChange={(val) => setBulkTargetPrice(val)}
+                                                        options={priceOptions}
+                                                        placeholder="Chọn mức đơn giá"
+                                                        className="min-w-[210px]"
+                                                        showSearch
+                                                        optionFilterProp="label"
+                                                    />
+
+                                                    <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">Chiết khấu:</span>
                                                     <InputNumber
                                                         min={0}
                                                         max={100}
                                                         placeholder="%"
                                                         value={bulkDiscount}
                                                         onChange={(val) => setBulkDiscount(val)}
+                                                        onPressEnter={handleApplyBulkDiscount}
                                                         className="w-20 text-center"
+                                                        addonAfter="%"
                                                     />
                                                     <Button
                                                         type="primary"
-                                                        disabled={selectedItemIndexes.length === 0}
-                                                        onClick={() => {
-                                                            if (bulkDiscount === null || bulkDiscount === undefined || bulkDiscount < 0) {
-                                                                message.warning('Vui lòng nhập phần trăm chiết khấu (0 - 100%)');
-                                                                return;
-                                                            }
-                                                            if (selectedItemIndexes.length === 0) {
-                                                                message.warning('Vui lòng chọn ít nhất 1 sản phẩm để áp dụng chiết khấu');
-                                                                return;
-                                                            }
-                                                            const currentItems = form.getFieldValue('items') || [];
-                                                            const updatedItems = [...currentItems];
-                                                            selectedItemIndexes.forEach(idx => {
-                                                                if (updatedItems[idx]) {
-                                                                    updatedItems[idx] = { ...updatedItems[idx], discountPercent: bulkDiscount };
-                                                                }
-                                                            });
-                                                            form.setFieldsValue({ items: updatedItems });
-                                                            calculateTotals();
-                                                            updateActiveDraft();
-                                                            message.success(`Đã áp dụng chiết khấu ${bulkDiscount}% cho ${selectedItemIndexes.length} sản phẩm`);
-                                                            setSelectedItemIndexes([]);
-                                                        }}
-                                                        className={`font-medium whitespace-nowrap ${selectedItemIndexes.length > 0 ? 'bg-blue-600 hover:bg-blue-500' : ''}`}
+                                                        icon={<CheckOutlined />}
+                                                        onClick={handleApplyBulkDiscount}
+                                                        disabled={bulkTargetPrice == null || bulkDiscount == null}
+                                                        className="font-medium whitespace-nowrap bg-blue-600 hover:bg-blue-500"
                                                     >
-                                                        {selectedItemIndexes.length > 0 
-                                                            ? `Áp dụng (${selectedItemIndexes.length} SP đã chọn)` 
-                                                            : `Áp dụng`}
+                                                        {matchedCount > 0 ? `Áp dụng (${matchedCount} SP)` : `Áp dụng`}
                                                     </Button>
                                                 </div>
                                             </div>
 
                                             {/* Table Header (desktop only) */}
                                             <div className="hidden md:flex gap-3 px-4 py-2.5 bg-gray-100 font-semibold text-gray-600 border rounded-t-lg items-center text-sm">
-                                                <div className="w-[30px]"></div>
                                                 <div className="flex-[2]">Sản phẩm (SKU)</div>
                                                 <div className="w-[120px] text-center">Đơn giá</div>
                                                 <div className="w-[100px] text-center">Số lượng</div>
@@ -314,21 +403,17 @@ const CreateInvoiceModal = ({
                                             </div>
 
                                             <div className="border border-t-0 rounded-b-lg divide-y bg-white">
-                                                {fields.map(({ key, name, ...restField }) => (
-                                                    <div key={key} className={`flex flex-col md:flex-row gap-3 items-stretch md:items-center px-4 py-3 hover:bg-gray-50/50 ${selectedItemIndexes.includes(name) ? 'bg-blue-50/30' : ''}`}>
-                                                        {/* Checkbox chọn hàng */}
-                                                        <div className="w-full md:w-[30px] flex items-center justify-center">
-                                                            <Checkbox
-                                                                checked={selectedItemIndexes.includes(name)}
-                                                                onChange={(e) => {
-                                                                    if (e.target.checked) {
-                                                                        setSelectedItemIndexes(prev => [...prev, name]);
-                                                                    } else {
-                                                                        setSelectedItemIndexes(prev => prev.filter(i => i !== name));
-                                                                    }
-                                                                }}
-                                                            />
-                                                        </div>
+                                                {fields.map(({ key, name, ...restField }) => {
+                                                    const rowPrice = Number(watchItems?.[name]?.price) || 0;
+                                                    const isPriceMatched = bulkTargetPrice !== 'ALL' && bulkTargetPrice !== null && Number(bulkTargetPrice) === rowPrice;
+
+                                                    return (
+                                                        <div
+                                                            key={key}
+                                                            className={`flex flex-col md:flex-row gap-3 items-stretch md:items-center px-4 py-3 hover:bg-gray-50/50 transition-colors ${
+                                                                isPriceMatched ? 'bg-blue-50/25' : ''
+                                                            }`}
+                                                        >
                                                         {/* Cột 1: Sản phẩm (SKU) */}
                                                         <div className="flex-[2] min-w-0">
                                                             <span className="block md:hidden text-xs font-semibold text-gray-500 mb-1">Sản phẩm (SKU)</span>
@@ -361,15 +446,33 @@ const CreateInvoiceModal = ({
                                                         {/* Cột 2: Đơn giá */}
                                                         <div className="w-full md:w-[120px]">
                                                             <span className="block md:hidden text-xs font-semibold text-gray-500 mb-1">Đơn giá</span>
-                                                            <Form.Item
-                                                                name={[name, 'price']}
-                                                                style={{ margin: 0 }}
-                                                                getValueProps={(value) => ({
-                                                                    value: value != null ? value.toLocaleString('en-US') : '',
-                                                                })}
-                                                            >
-                                                                <Input disabled className="text-right md:text-center font-medium text-gray-700 bg-gray-50" />
-                                                            </Form.Item>
+                                                            <Tooltip title="Nhấp để chọn áp dụng chiết khấu cho tất cả sản phẩm cùng mức giá này">
+                                                                <div
+                                                                    onClick={() => {
+                                                                        setBulkTargetPrice(rowPrice);
+                                                                    }}
+                                                                    className={`cursor-pointer transition-all rounded px-1 py-0.5 border ${
+                                                                        isPriceMatched
+                                                                            ? 'border-blue-400 bg-blue-50/70 text-blue-700 font-semibold shadow-xs'
+                                                                            : 'border-transparent hover:border-gray-300'
+                                                                    }`}
+                                                                >
+                                                                    <Form.Item
+                                                                        name={[name, 'price']}
+                                                                        style={{ margin: 0 }}
+                                                                        getValueProps={(value) => ({
+                                                                            value: value != null ? value.toLocaleString('en-US') : '',
+                                                                        })}
+                                                                    >
+                                                                        <Input
+                                                                            disabled
+                                                                            className={`text-right md:text-center font-medium cursor-pointer ${
+                                                                                isPriceMatched ? 'bg-transparent text-blue-700 font-bold' : 'text-gray-700 bg-gray-50'
+                                                                            }`}
+                                                                        />
+                                                                    </Form.Item>
+                                                                </div>
+                                                            </Tooltip>
                                                         </div>
 
                                                         {/* Cột 3: Số lượng */}
@@ -410,14 +513,14 @@ const CreateInvoiceModal = ({
                                                                 icon={<DeleteOutlined />}
                                                                 onClick={() => {
                                                                     remove(name);
-                                                                    setSelectedItemIndexes(prev => prev.filter(i => i !== name).map(i => i > name ? i - 1 : i));
                                                                     calculateTotals();
                                                                     updateActiveDraft();
                                                                 }}
                                                             />
                                                         </div>
                                                     </div>
-                                                ))}
+                                                );
+                                                })}
                                             </div>
 
                                         </>
