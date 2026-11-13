@@ -33,10 +33,10 @@ const InvoiceMobileList = ({
                                 {invoice.invoiceCode}
                             </div>
                             <div className="text-sm text-gray-600">
-                                KH: {invoice.customerId?.name || 'N/A'}
+                                KH: {invoice.customerId?.name || invoice.customerName || 'N/A'}
                             </div>
                             <div className="text-sm text-gray-600">
-                                NV: {invoice.staffId?.name || 'N/A'}
+                                NV: {invoice.staffId?.name || invoice.staffName || 'N/A'}
                             </div>
                         </div>
 

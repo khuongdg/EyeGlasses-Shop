@@ -4,7 +4,37 @@ const Invoice = require('../models/Invoice');
 const Variant = require('../models/Variant');
 const Company = require('../models/Company');
 const Debt = require('../models/Debt');
+const Customer = require('../models/Customer');
+const Staff = require('../models/Staff');
 const { generateQRCode } = require('../utils/qrCode');
+
+/**
+ * Tạo RegExp tìm kiếm tiếng Việt linh hoạt: hỗ trợ cả có dấu và không dấu
+ */
+const makeVietnameseRegex = (str) => {
+  if (!str) return null;
+  const escaped = str.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const accentMap = {
+    'a': '[aàáảãạăằắẳẵặâầấẩẫậAÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬ]',
+    'e': '[eèéẻẽẹêềếểễệEÈÉẺẼẸÊỀẾỂỄỆ]',
+    'i': '[iìíỉĩịIÌÍỈĨỊ]',
+    'o': '[oòóỏõọôồốổỗộơờớởỡợOÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢ]',
+    'u': '[uùúủũụưừứửữựUÙÚỦŨỤƯỪỨỬỮỰ]',
+    'y': '[yỳýỷỹỵYỲÝỶỸỴ]',
+    'd': '[dđDĐ]'
+  };
+  let pattern = '';
+  for (const char of escaped) {
+    const lower = char.toLowerCase();
+    const base = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/, 'd');
+    if (accentMap[base]) {
+      pattern += accentMap[base];
+    } else {
+      pattern += char;
+    }
+  }
+  return new RegExp(pattern, 'i');
+};
 /**
  * Sinh mã phiếu xuất kho hoặc phiếu in tem mẫu
  * Format: PXK/YYMMDD/XXXX hoặc PTM/YYMMDD/XXXX
@@ -82,7 +112,31 @@ exports.createInvoice = async (payload) => {
       }
     }
 
-    // 5. Tạo Object Invoice với dữ liệu Snapshot
+    // 5. Chuẩn hóa thông tin Snapshot Khách hàng & Nhân viên
+    let customerName = payload.customerName;
+    let customerPhone = payload.customerPhone;
+    let customerAddress = payload.customerAddress;
+    let customerTaxCode = payload.customerTaxCode;
+
+    if (payload.customerId && (!customerName || customerName === 'Khách lẻ')) {
+      const customerDoc = await Customer.findById(payload.customerId).session(session);
+      if (customerDoc) {
+        customerName = customerDoc.name;
+        customerPhone = customerPhone || customerDoc.phone;
+        customerAddress = customerAddress || customerDoc.address;
+        customerTaxCode = customerTaxCode || customerDoc.taxCode;
+      }
+    }
+
+    let staffName = payload.staffName;
+    if (payload.staffId && !staffName) {
+      const staffDoc = await Staff.findById(payload.staffId).session(session);
+      if (staffDoc) {
+        staffName = staffDoc.name;
+      }
+    }
+
+    // 6. Tạo Object Invoice với dữ liệu Snapshot
     const newInvoice = new Invoice({
       invoiceCode,
       companyInfo: {
@@ -92,12 +146,12 @@ exports.createInvoice = async (payload) => {
         taxCode: activeCompany.taxCode
       },
       customerId: payload.customerId || undefined,
-      customerName: payload.customerName || (payload.isSample ? 'Hàng mẫu' : 'Khách lẻ'),
-      customerPhone: payload.customerPhone || '',
-      customerAddress: payload.customerAddress || '',
-      customerTaxCode: payload.customerTaxCode || '',
+      customerName: customerName || (payload.isSample ? 'Hàng mẫu' : 'Khách lẻ'),
+      customerPhone: customerPhone || '',
+      customerAddress: customerAddress || '',
+      customerTaxCode: customerTaxCode || '',
       staffId: payload.staffId,
-      staffName: payload.staffName,
+      staffName: staffName || '',
       items: itemsWithQr,
       totalQuantity: payload.totalQuantity,
       subTotal: payload.isSample ? undefined : payload.subTotal,
@@ -113,8 +167,8 @@ exports.createInvoice = async (payload) => {
     if (payload.paymentMethod === 'DEBT' && !payload.isSample) {
       const newDebt = new Debt({
         invoiceId: newInvoice._id,
-        customerName: payload.customerName,
-        customerPhone: payload.customerPhone,
+        customerName: newInvoice.customerName,
+        customerPhone: newInvoice.customerPhone,
         totalAmount: payload.totalAmount,
         remainingAmount: payload.totalAmount, // Ban đầu nợ bằng tổng tiền
         status: 'UNPAID'
@@ -207,15 +261,46 @@ exports.getInvoices = async ({
     andConditions.push({ customerPhone });
   }
 
-  // Tìm kiếm theo mã phiếu, tên khách hàng hoặc SĐT khách hàng (Snapshot)
-  if (keyword) {
-    andConditions.push({
+  // Tìm kiếm theo mã phiếu, tên/SĐT khách hàng hoặc nhân viên (cả snapshot lẫn collection Customer & Staff)
+  if (keyword && keyword.trim()) {
+    const vnRegex = makeVietnameseRegex(keyword);
+
+    // 1. Tìm các customerId khớp từ collection Customer (tên, SĐT, mã khách hàng)
+    const matchingCustomers = await Customer.find({
       $or: [
-        { invoiceCode: { $regex: keyword, $options: 'i' } },
-        { customerName: { $regex: keyword, $options: 'i' } },
-        { customerPhone: { $regex: keyword, $options: 'i' } }
+        { name: { $regex: vnRegex } },
+        { phone: { $regex: vnRegex } },
+        { customerCode: { $regex: vnRegex } }
       ]
-    });
+    }).select('_id').lean();
+    const matchingCustomerIds = matchingCustomers.map((c) => c._id);
+
+    // 2. Tìm các staffId khớp từ collection Staff (tên, SĐT, mã nhân viên)
+    const matchingStaffs = await Staff.find({
+      $or: [
+        { name: { $regex: vnRegex } },
+        { phone: { $regex: vnRegex } },
+        { staffCode: { $regex: vnRegex } }
+      ]
+    }).select('_id').lean();
+    const matchingStaffIds = matchingStaffs.map((s) => s._id);
+
+    // 3. Xây dựng điều kiện $or cho Invoice
+    const searchConditions = [
+      { invoiceCode: { $regex: vnRegex } },
+      { customerName: { $regex: vnRegex } },
+      { customerPhone: { $regex: vnRegex } },
+      { staffName: { $regex: vnRegex } }
+    ];
+
+    if (matchingCustomerIds.length > 0) {
+      searchConditions.push({ customerId: { $in: matchingCustomerIds } });
+    }
+    if (matchingStaffIds.length > 0) {
+      searchConditions.push({ staffId: { $in: matchingStaffIds } });
+    }
+
+    andConditions.push({ $or: searchConditions });
   }
 
   // Lọc theo khoảng thời gian
@@ -440,17 +525,40 @@ exports.getDebts = async ({ keyword, status, page = 1, limit = 10, dateFrom, dat
     if (dateFrom) filter.createdAt.$gte = new Date(new Date(dateFrom).setHours(0, 0, 0, 0));
     if (dateTo) filter.createdAt.$lte = new Date(new Date(dateTo).setHours(23, 59, 59, 999));
   }
-  if (keyword) {
-    const matchingInvoices = await Invoice.find({
-      invoiceCode: { $regex: keyword, $options: 'i' }
-    }).select('_id').lean();
-    const invoiceIds = matchingInvoices.map(inv => inv._id);
+  if (keyword && keyword.trim()) {
+    const vnRegex = makeVietnameseRegex(keyword);
 
-    filter.$or = [
-      { customerName: { $regex: keyword, $options: 'i' } },
-      { customerPhone: { $regex: keyword, $options: 'i' } },
-      { invoiceId: { $in: invoiceIds } }
+    // Tìm các customerId khớp
+    const matchingCustomers = await Customer.find({
+      $or: [
+        { name: { $regex: vnRegex } },
+        { phone: { $regex: vnRegex } },
+        { customerCode: { $regex: vnRegex } }
+      ]
+    }).select('_id').lean();
+    const matchingCustomerIds = matchingCustomers.map((c) => c._id);
+
+    const invoiceSearchConditions = [
+      { invoiceCode: { $regex: vnRegex } }
     ];
+    if (matchingCustomerIds.length > 0) {
+      invoiceSearchConditions.push({ customerId: { $in: matchingCustomerIds } });
+    }
+
+    const matchingInvoices = await Invoice.find({
+      $or: invoiceSearchConditions
+    }).select('_id').lean();
+    const invoiceIds = matchingInvoices.map((inv) => inv._id);
+
+    const debtOrConditions = [
+      { customerName: { $regex: vnRegex } },
+      { customerPhone: { $regex: vnRegex } }
+    ];
+    if (invoiceIds.length > 0) {
+      debtOrConditions.push({ invoiceId: { $in: invoiceIds } });
+    }
+
+    filter.$or = debtOrConditions;
   }
 
   const skip = (page - 1) * limit;

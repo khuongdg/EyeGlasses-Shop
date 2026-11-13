@@ -564,8 +564,8 @@ const Invoices = () => {
     /* ================= TABLE COLUMNS ================= */
     const columns = [
         { title: 'Mã phiếu', dataIndex: 'invoiceCode', className: 'whitespace-nowrap' },
-        { title: 'Khách hàng', className: 'whitespace-nowrap', render: (_, record) => record.customerId?.name || 'N/A' },
-        { title: 'Nhân viên', className: 'whitespace-nowrap', render: (_, record) => record.staffId?.name || 'N/A' },
+        { title: 'Khách hàng', className: 'whitespace-nowrap', render: (_, record) => record.customerId?.name || record.customerName || 'N/A' },
+        { title: 'Nhân viên', className: 'whitespace-nowrap', render: (_, record) => record.staffId?.name || record.staffName || 'N/A' },
         {
             title: 'Tổng tiền',
             dataIndex: 'totalAmount',
